@@ -1,0 +1,18 @@
+{
+  "type": "moore",
+  "states": ["green", "yellow", "red"],
+  "alphabet": ["timer"],
+  "initial": "green",
+  "accepting": [],
+  "transitions": [
+    {"from": "green", "input": "timer", "to": "yellow"},
+    {"from": "yellow", "input": "timer", "to": "red"},
+    {"from": "red", "input": "timer", "to": "green"}
+  ],
+  "output_alphabet": ["go", "caution", "stop"],
+  "state_outputs": {
+    "green": "go",
+    "yellow": "caution",
+    "red": "stop"
+  }
+}

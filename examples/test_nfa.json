@@ -1,0 +1,15 @@
+{
+  "type": "nfa",
+  "states": ["q0", "q1", "q2", "q3"],
+  "alphabet": ["a", "b"],
+  "initial": "q0",
+  "accepting": ["q3"],
+  "transitions": [
+    {"from": "q0", "input": "a", "to": ["q0", "q1"]},
+    {"from": "q0", "input": "b", "to": "q0"},
+    {"from": "q1", "input": null, "to": "q2"},
+    {"from": "q2", "input": "b", "to": "q3"},
+    {"from": "q3", "input": "a", "to": "q3"},
+    {"from": "q3", "input": "b", "to": "q3"}
+  ]
+}

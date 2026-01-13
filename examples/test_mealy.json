@@ -1,0 +1,19 @@
+{
+  "type": "mealy",
+  "states": ["idle", "five", "ten"],
+  "alphabet": ["nickel", "dime", "button"],
+  "initial": "idle",
+  "accepting": [],
+  "transitions": [
+    {"from": "idle", "input": "nickel", "to": "five", "output": "none"},
+    {"from": "idle", "input": "dime", "to": "ten", "output": "none"},
+    {"from": "idle", "input": "button", "to": "idle", "output": "none"},
+    {"from": "five", "input": "nickel", "to": "ten", "output": "none"},
+    {"from": "five", "input": "dime", "to": "idle", "output": "dispense"},
+    {"from": "five", "input": "button", "to": "five", "output": "none"},
+    {"from": "ten", "input": "nickel", "to": "idle", "output": "dispense"},
+    {"from": "ten", "input": "dime", "to": "idle", "output": "dispense_change"},
+    {"from": "ten", "input": "button", "to": "idle", "output": "dispense"}
+  ],
+  "output_alphabet": ["none", "dispense", "dispense_change"]
+}

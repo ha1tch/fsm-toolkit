@@ -1,0 +1,43 @@
+{
+  "type": "mealy",
+  "states": [
+    "F1_idle_closed", "F1_idle_open",
+    "F2_idle_closed", "F2_idle_open", 
+    "F3_idle_closed", "F3_idle_open"
+  ],
+  "alphabet": ["timer", "door", "up", "down"],
+  "initial": "F1_idle_closed",
+  "accepting": [],
+  "transitions": [
+    {"from": "F1_idle_closed", "input": "door", "to": "F1_idle_open", "output": "door_open"},
+    {"from": "F1_idle_closed", "input": "up", "to": "F2_idle_closed", "output": "motor_up"},
+    {"from": "F1_idle_closed", "input": "down", "to": "F1_idle_closed", "output": "none"},
+    {"from": "F1_idle_closed", "input": "timer", "to": "F1_idle_closed", "output": "none"},
+    
+    {"from": "F1_idle_open", "input": "timer", "to": "F1_idle_closed", "output": "door_close"},
+    {"from": "F1_idle_open", "input": "door", "to": "F1_idle_closed", "output": "door_close"},
+    {"from": "F1_idle_open", "input": "up", "to": "F1_idle_open", "output": "none"},
+    {"from": "F1_idle_open", "input": "down", "to": "F1_idle_open", "output": "none"},
+    
+    {"from": "F2_idle_closed", "input": "door", "to": "F2_idle_open", "output": "door_open"},
+    {"from": "F2_idle_closed", "input": "up", "to": "F3_idle_closed", "output": "motor_up"},
+    {"from": "F2_idle_closed", "input": "down", "to": "F1_idle_closed", "output": "motor_down"},
+    {"from": "F2_idle_closed", "input": "timer", "to": "F2_idle_closed", "output": "none"},
+    
+    {"from": "F2_idle_open", "input": "timer", "to": "F2_idle_closed", "output": "door_close"},
+    {"from": "F2_idle_open", "input": "door", "to": "F2_idle_closed", "output": "door_close"},
+    {"from": "F2_idle_open", "input": "up", "to": "F2_idle_open", "output": "none"},
+    {"from": "F2_idle_open", "input": "down", "to": "F2_idle_open", "output": "none"},
+    
+    {"from": "F3_idle_closed", "input": "door", "to": "F3_idle_open", "output": "door_open"},
+    {"from": "F3_idle_closed", "input": "up", "to": "F3_idle_closed", "output": "none"},
+    {"from": "F3_idle_closed", "input": "down", "to": "F2_idle_closed", "output": "motor_down"},
+    {"from": "F3_idle_closed", "input": "timer", "to": "F3_idle_closed", "output": "none"},
+    
+    {"from": "F3_idle_open", "input": "timer", "to": "F3_idle_closed", "output": "door_close"},
+    {"from": "F3_idle_open", "input": "door", "to": "F3_idle_closed", "output": "door_close"},
+    {"from": "F3_idle_open", "input": "up", "to": "F3_idle_open", "output": "none"},
+    {"from": "F3_idle_open", "input": "down", "to": "F3_idle_open", "output": "none"}
+  ],
+  "output_alphabet": ["none", "door_open", "door_close", "motor_up", "motor_down"]
+}

@@ -34,11 +34,16 @@ type Editor struct {
 	selectedState int // -1 = none
 	selectedTrans int // -1 = none
 
-	// Dragging state
+	// Dragging state (mouse)
 	dragging      bool
 	dragStateIdx  int
 	dragOffsetX   int // offset from mouse to state origin
 	dragOffsetY   int
+
+	// Move mode state (keyboard)
+	moveStateIdx int // state being moved
+	moveOrigX    int // original position for undo
+	moveOrigY    int
 
 	// Display options
 	showArcs bool // toggle arc visibility with 'w'
@@ -90,6 +95,7 @@ const (
 	ModeAddTransition
 	ModeSelectInput
 	ModeSelectOutput
+	ModeMove // keyboard-driven state movement
 )
 
 // MessageType for status messages
@@ -225,6 +231,8 @@ func (ed *Editor) handleKey(ev *tcell.EventKey) bool {
 		return ed.handleSelectInputKey(ev)
 	case ModeSelectOutput:
 		return ed.handleSelectOutputKey(ev)
+	case ModeMove:
+		return ed.handleMoveKey(ev)
 	}
 	return false
 }
@@ -330,6 +338,12 @@ func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
 				ed.showMessage("Arcs visible", MsgInfo)
 			} else {
 				ed.showMessage("Arcs hidden", MsgInfo)
+			}
+		case 'g', 'G':
+			if ed.selectedState >= 0 {
+				ed.startMoveMode()
+			} else {
+				ed.showMessage("Select a state first (Tab to cycle)", MsgInfo)
 			}
 		}
 	}
@@ -754,6 +768,53 @@ func (ed *Editor) cycleSelection() {
 	if ed.selectedState >= len(ed.states) {
 		ed.selectedState = 0
 	}
+}
+
+func (ed *Editor) startMoveMode() {
+	if ed.selectedState < 0 || ed.selectedState >= len(ed.states) {
+		return
+	}
+	// Save original position for undo
+	ed.moveStateIdx = ed.selectedState
+	ed.moveOrigX = ed.states[ed.selectedState].X
+	ed.moveOrigY = ed.states[ed.selectedState].Y
+	ed.mode = ModeMove
+	ed.showMessage("Move: arrows to move, Enter to confirm, Esc to cancel", MsgInfo)
+}
+
+func (ed *Editor) handleMoveKey(ev *tcell.EventKey) bool {
+	if ed.moveStateIdx < 0 || ed.moveStateIdx >= len(ed.states) {
+		ed.mode = ModeCanvas
+		return false
+	}
+
+	switch ev.Key() {
+	case tcell.KeyEscape:
+		// Restore original position
+		ed.states[ed.moveStateIdx].X = ed.moveOrigX
+		ed.states[ed.moveStateIdx].Y = ed.moveOrigY
+		ed.mode = ModeCanvas
+		ed.showMessage("Move cancelled", MsgInfo)
+	case tcell.KeyEnter:
+		// Confirm move - save to undo stack
+		ed.saveSnapshot()
+		ed.modified = true
+		ed.mode = ModeCanvas
+		ed.showMessage("State moved", MsgSuccess)
+	case tcell.KeyUp:
+		if ed.states[ed.moveStateIdx].Y > 0 {
+			ed.states[ed.moveStateIdx].Y--
+		}
+	case tcell.KeyDown:
+		ed.states[ed.moveStateIdx].Y++
+	case tcell.KeyLeft:
+		if ed.states[ed.moveStateIdx].X > 0 {
+			ed.states[ed.moveStateIdx].X--
+		}
+	case tcell.KeyRight:
+		ed.states[ed.moveStateIdx].X++
+	}
+	return false
 }
 
 func (ed *Editor) startAddTransition() {

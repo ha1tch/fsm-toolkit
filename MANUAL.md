@@ -633,8 +633,19 @@ The editor has three main areas:
 | S | Set selected as initial state |
 | A | Toggle accepting state |
 | M | Set Moore output (Moore machines) |
+| G | Grab/move selected state (enter move mode) |
 | W | Toggle arc (wire) visibility |
 | Esc | Return to menu |
+
+#### Move Mode Keys
+
+When in move mode (after pressing G on a selected state):
+
+| Key | Action |
+|-----|--------|
+| Arrow keys | Move the state |
+| Enter | Confirm new position |
+| Esc | Cancel and restore original position |
 
 #### Global Keys
 

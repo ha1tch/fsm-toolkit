@@ -127,6 +127,10 @@ func (ed *Editor) drawCanvas(w, h int) {
 		if i == ed.selectedState {
 			style = styleStateSel
 		}
+		// In move mode, highlight the state being moved
+		if ed.mode == ModeMove && i == ed.moveStateIdx {
+			style = styleDragging
+		}
 
 		label := fmt.Sprintf("%s[%s]%s", prefix, sp.Name, suffix)
 		ed.drawString(x, y, label, style)

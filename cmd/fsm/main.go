@@ -500,7 +500,8 @@ func printStatus(r *fsm.Runner, f *fsm.FSM) {
 	if r.IsAccepting() {
 		status += " [accepting]"
 	}
-	if f.Type == fsm.TypeMoore {
+	// Show outputs for Moore machines and NFAs with state outputs
+	if f.Type == fsm.TypeMoore || (f.Type == fsm.TypeNFA && len(f.StateOutputs) > 0) {
 		if out := r.CurrentOutput(); out != "" {
 			status += fmt.Sprintf(" -> %s", out)
 		}

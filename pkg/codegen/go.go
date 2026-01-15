@@ -9,7 +9,13 @@ import (
 
 // GenerateGo generates Go code for the FSM.
 // The generated code is compatible with both standard Go and TinyGo.
+// If the FSM is an NFA, it is first converted to a DFA.
 func GenerateGo(f *fsm.FSM, packageName string) string {
+	// Convert NFA to DFA for code generation
+	if f.Type == fsm.TypeNFA {
+		f = f.ToDFA()
+	}
+
 	var sb strings.Builder
 	typeName := toPascalCase(sanitizeName(f.Name))
 	if typeName == "" {

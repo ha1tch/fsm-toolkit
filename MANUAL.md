@@ -845,7 +845,7 @@ if fsm.CanStep(myfsm.MyFsmInputStart) {
 
 ### Limitations
 
-**No NFA support**: Generated code only handles deterministic transitions. NFAs with epsilon transitions or multiple target states will only use the first target.
+**NFA in code generation**: NFAs are automatically converted to DFAs (powerset construction) before code generation. The resulting DFA may have composite state names (e.g., `q0_q1_q2`). For very large NFAs with many epsilon transitions, the DFA state explosion can produce large code.
 
 **No runtime modification**: The FSM structure is compiled into switch statements. You cannot add/remove states or transitions at runtime.
 

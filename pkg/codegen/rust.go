@@ -8,7 +8,13 @@ import (
 )
 
 // GenerateRust generates Rust code for the FSM.
+// If the FSM is an NFA, it is first converted to a DFA.
 func GenerateRust(f *fsm.FSM) string {
+	// Convert NFA to DFA for code generation
+	if f.Type == fsm.TypeNFA {
+		f = f.ToDFA()
+	}
+
 	var sb strings.Builder
 	name := toSnakeCase(sanitizeName(f.Name))
 	typeName := toPascalCase(sanitizeName(f.Name))

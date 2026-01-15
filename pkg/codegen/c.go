@@ -10,7 +10,13 @@ import (
 )
 
 // GenerateC generates C code for the FSM.
+// If the FSM is an NFA, it is first converted to a DFA.
 func GenerateC(f *fsm.FSM) string {
+	// Convert NFA to DFA for code generation
+	if f.Type == fsm.TypeNFA {
+		f = f.ToDFA()
+	}
+
 	var sb strings.Builder
 	name := sanitizeName(f.Name)
 	if name == "" {

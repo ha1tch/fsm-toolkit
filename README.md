@@ -1,6 +1,6 @@
 # FSM Toolkit
 
-A compact binary format for finite state machines with converters, visualisation, and interactive execution.
+A compact binary format for finite state machines with converters, visualisation, code generation, interactive runner, and visual editor.
 
 Supports DFA, NFA, Moore, and Mealy machines. Up to 65K states, 65K inputs, 65K outputs.
 
@@ -9,17 +9,36 @@ Supports DFA, NFA, Moore, and Mealy machines. Up to 65K states, 65K inputs, 65K 
 ## Quick Start
 
 ```bash
-# Build Go CLI
-go build -o fsm ./cmd/fsm
+# Build (creates bin/fsm and bin/fsmedit)
+./build.sh
+
+# Or build manually
+go build -o fsm ./cmd/fsm/
+go build -o fsmedit ./cmd/fsmedit/
 
 # Convert JSON to .fsm
-./fsm convert examples/test_moore.json -o traffic.fsm
+./bin/fsm convert examples/beatles.json -o beatles.fsm
 
-# Visualise
-./fsm dot traffic.fsm | dot -Tpng -o traffic.png
+# Generate images directly
+./bin/fsm png beatles.fsm
+./bin/fsm svg beatles.fsm -o diagram.svg
+
+# Or open in system viewer
+./bin/fsm view beatles.fsm
+
+# Generate code
+./bin/fsm generate beatles.fsm --lang c -o beatles.h
+./bin/fsm generate beatles.fsm --lang rust -o beatles.rs
+./bin/fsm generate beatles.fsm --lang go -o beatles.go
+
+# Analyse for issues
+./bin/fsm analyse beatles.fsm
 
 # Run interactively
-./fsm run traffic.fsm
+./bin/fsm run beatles.fsm
+
+# Visual editor
+./bin/fsmedit beatles.fsm
 ```
 
 ## File Format
@@ -29,7 +48,8 @@ A `.fsm` file is a ZIP containing:
 ```
 example.fsm
 ├── machine.hex      # required: hex records
-└── labels.toml      # optional: human-readable names
+├── labels.toml      # optional: human-readable names
+└── layout.toml      # optional: visual positions (fsmedit)
 ```
 
 Each hex record: `TYPE SSSS:IIII TTTT:OOOO` (20 hex chars)
@@ -40,9 +60,15 @@ Each hex record: `TYPE SSSS:IIII TTTT:OOOO` (20 hex chars)
 |---------|-------------|
 | `fsm convert` | Convert between json/hex/fsm |
 | `fsm dot` | Generate Graphviz DOT |
+| `fsm png` | Generate PNG image |
+| `fsm svg` | Generate SVG image |
+| `fsm generate` | Generate code (C, Rust, Go/TinyGo) |
 | `fsm info` | Show FSM information |
-| `fsm validate` | Validate FSM |
+| `fsm analyse` | Analyse for potential issues |
+| `fsm validate` | Validate FSM structure |
 | `fsm run` | Interactive execution |
+| `fsm view` | Visualise (generates PNG, opens viewer) |
+| `fsm edit` | Open visual editor (invokes fsmedit) |
 
 ## Python Scripts
 
@@ -56,7 +82,8 @@ Each hex record: `TYPE SSSS:IIII TTTT:OOOO` (20 hex chars)
 
 ```
 fsm-toolkit/
-├── cmd/fsm/         # Go CLI tool
+├── cmd/fsm/         # CLI tool
+├── cmd/fsmedit/     # Visual editor
 ├── pkg/fsm/         # Core FSM types + runner
 ├── pkg/fsmfile/     # File format handling
 ├── *.py             # Python scripts
@@ -80,13 +107,7 @@ State: red -> stop
 ```
 
 ## License
-Apache 2.0
 
-# Author
-Copyright (c)2026 haitch
+Apache 2.0 — see https://www.apache.org/licenses/LICENSE-2.0
 
-h@ual.fi
-
-https://oldbytes.space/@haitchfive
-
-
+Copyright (c) 2026 haitch — h@ual.fi

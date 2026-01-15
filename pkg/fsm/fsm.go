@@ -262,3 +262,237 @@ func (f *FSM) String() string {
 	sb.WriteString(fmt.Sprintf("  Transitions: %d\n", len(f.Transitions)))
 	return sb.String()
 }
+
+// ValidationWarning represents a non-fatal issue with the FSM.
+type ValidationWarning struct {
+	Type    string
+	Message string
+	States  []string // affected states, if applicable
+}
+
+// Analyse performs structural analysis and returns warnings.
+// This checks for issues that don't prevent the FSM from running
+// but may indicate design problems.
+func (f *FSM) Analyse() []ValidationWarning {
+	var warnings []ValidationWarning
+
+	// Check for unreachable states
+	unreachable := f.UnreachableStates()
+	if len(unreachable) > 0 {
+		warnings = append(warnings, ValidationWarning{
+			Type:    "unreachable",
+			Message: fmt.Sprintf("%d state(s) not reachable from initial state", len(unreachable)),
+			States:  unreachable,
+		})
+	}
+
+	// Check for dead states (no outgoing transitions)
+	dead := f.DeadStates()
+	if len(dead) > 0 {
+		warnings = append(warnings, ValidationWarning{
+			Type:    "dead",
+			Message: fmt.Sprintf("%d state(s) have no outgoing transitions", len(dead)),
+			States:  dead,
+		})
+	}
+
+	// Check for non-determinism in DFA
+	if f.Type == TypeDFA {
+		nondet := f.NonDeterministicStates()
+		if len(nondet) > 0 {
+			warnings = append(warnings, ValidationWarning{
+				Type:    "nondeterministic",
+				Message: fmt.Sprintf("%d state(s) have multiple transitions on same input", len(nondet)),
+				States:  nondet,
+			})
+		}
+	}
+
+	// Check for incomplete transitions (DFA should have transition for every input)
+	if f.Type == TypeDFA {
+		incomplete := f.IncompleteStates()
+		if len(incomplete) > 0 {
+			warnings = append(warnings, ValidationWarning{
+				Type:    "incomplete",
+				Message: fmt.Sprintf("%d state(s) missing transitions for some inputs", len(incomplete)),
+				States:  incomplete,
+			})
+		}
+	}
+
+	// Check for unused inputs
+	unusedInputs := f.UnusedInputs()
+	if len(unusedInputs) > 0 {
+		warnings = append(warnings, ValidationWarning{
+			Type:    "unused_input",
+			Message: fmt.Sprintf("%d input(s) not used in any transition", len(unusedInputs)),
+		})
+	}
+
+	// Check for unused outputs (Moore/Mealy)
+	if f.Type == TypeMoore || f.Type == TypeMealy {
+		unusedOutputs := f.UnusedOutputs()
+		if len(unusedOutputs) > 0 {
+			warnings = append(warnings, ValidationWarning{
+				Type:    "unused_output",
+				Message: fmt.Sprintf("%d output(s) not used", len(unusedOutputs)),
+			})
+		}
+	}
+
+	return warnings
+}
+
+// UnreachableStates returns states not reachable from the initial state.
+func (f *FSM) UnreachableStates() []string {
+	if f.Initial == "" {
+		return f.States // all unreachable if no initial
+	}
+
+	// BFS from initial state
+	reachable := make(map[string]bool)
+	queue := []string{f.Initial}
+	reachable[f.Initial] = true
+
+	// Build adjacency for faster lookup
+	adj := make(map[string][]string)
+	for _, t := range f.Transitions {
+		adj[t.From] = append(adj[t.From], t.To...)
+	}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		for _, next := range adj[current] {
+			if !reachable[next] {
+				reachable[next] = true
+				queue = append(queue, next)
+			}
+		}
+	}
+
+	// Find unreachable
+	var unreachable []string
+	for _, s := range f.States {
+		if !reachable[s] {
+			unreachable = append(unreachable, s)
+		}
+	}
+	return unreachable
+}
+
+// DeadStates returns states with no outgoing transitions.
+// Accepting states without outgoing transitions are not considered dead.
+func (f *FSM) DeadStates() []string {
+	// Count outgoing transitions per state
+	outgoing := make(map[string]int)
+	for _, t := range f.Transitions {
+		outgoing[t.From]++
+	}
+
+	var dead []string
+	for _, s := range f.States {
+		if outgoing[s] == 0 && !f.IsAccepting(s) {
+			dead = append(dead, s)
+		}
+	}
+	return dead
+}
+
+// NonDeterministicStates returns states that have multiple transitions on the same input.
+func (f *FSM) NonDeterministicStates() []string {
+	// Map: state -> input -> count
+	transitions := make(map[string]map[string]int)
+
+	for _, t := range f.Transitions {
+		if transitions[t.From] == nil {
+			transitions[t.From] = make(map[string]int)
+		}
+		inputKey := ""
+		if t.Input != nil {
+			inputKey = *t.Input
+		} else {
+			inputKey = "\x00epsilon" // special key for epsilon
+		}
+		transitions[t.From][inputKey]++
+	}
+
+	var nondet []string
+	for state, inputs := range transitions {
+		for _, count := range inputs {
+			if count > 1 {
+				nondet = append(nondet, state)
+				break
+			}
+		}
+	}
+	return nondet
+}
+
+// IncompleteStates returns states that don't have transitions for all inputs.
+func (f *FSM) IncompleteStates() []string {
+	// Map: state -> set of inputs with transitions
+	covered := make(map[string]map[string]bool)
+
+	for _, t := range f.Transitions {
+		if t.Input == nil {
+			continue // epsilon doesn't count
+		}
+		if covered[t.From] == nil {
+			covered[t.From] = make(map[string]bool)
+		}
+		covered[t.From][*t.Input] = true
+	}
+
+	var incomplete []string
+	for _, s := range f.States {
+		if len(covered[s]) < len(f.Alphabet) {
+			incomplete = append(incomplete, s)
+		}
+	}
+	return incomplete
+}
+
+// UnusedInputs returns inputs not used in any transition.
+func (f *FSM) UnusedInputs() []string {
+	used := make(map[string]bool)
+	for _, t := range f.Transitions {
+		if t.Input != nil {
+			used[*t.Input] = true
+		}
+	}
+
+	var unused []string
+	for _, inp := range f.Alphabet {
+		if !used[inp] {
+			unused = append(unused, inp)
+		}
+	}
+	return unused
+}
+
+// UnusedOutputs returns outputs not used in any state (Moore) or transition (Mealy).
+func (f *FSM) UnusedOutputs() []string {
+	used := make(map[string]bool)
+
+	if f.Type == TypeMoore {
+		for _, out := range f.StateOutputs {
+			used[out] = true
+		}
+	} else if f.Type == TypeMealy {
+		for _, t := range f.Transitions {
+			if t.Output != nil {
+				used[*t.Output] = true
+			}
+		}
+	}
+
+	var unused []string
+	for _, out := range f.OutputAlphabet {
+		if !used[out] {
+			unused = append(unused, out)
+		}
+	}
+	return unused
+}

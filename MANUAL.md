@@ -88,6 +88,7 @@ The `.fsm` file format is a ZIP archive containing:
 |------|----------|-------------|
 | `machine.hex` | Yes | Binary state machine data |
 | `labels.toml` | No | Human-readable names |
+| `layout.toml` | No | Visual editor positions |
 
 ### machine.hex Format
 
@@ -192,18 +193,70 @@ description = "A simple 3-state traffic light"
 
 Keys must be hexadecimal with `0x` prefix. Values are quoted strings.
 
+### layout.toml Format
+
+Optional file storing visual editor positions:
+
+```toml
+[layout]
+version = 1
+
+[editor]
+canvas_offset_x = 0
+canvas_offset_y = 0
+
+[states."green"]
+x = 5
+y = 2
+
+[states."yellow"]
+x = 20
+y = 2
+
+[states."red"]
+x = 35
+y = 2
+```
+
+**Sections:**
+
+| Section | Description |
+|---------|-------------|
+| `[layout]` | Metadata version |
+| `[editor]` | Canvas scroll offset |
+| `[states."name"]` | Per-state X/Y coordinates |
+
+If `layout.toml` is missing, fsmedit generates a default grid layout.
+
 ---
 
-## Go CLI Tool
+## Go CLI Tools
 
 ### Building
 
 ```bash
 cd fsm-toolkit
-go build -o fsm ./cmd/fsm
+go build -o fsm ./cmd/fsm/
+go build -o fsmedit ./cmd/fsmedit/
 ```
 
-### Commands
+### fsm - Command Line Tool
+
+#### Commands
+
+| Command | Description |
+|---------|-------------|
+| `convert` | Convert between formats (json, hex, fsm) |
+| `dot` | Generate Graphviz DOT output |
+| `png` | Generate PNG image |
+| `svg` | Generate SVG image |
+| `generate` | Generate code (C, Rust, Go/TinyGo) |
+| `info` | Show FSM information |
+| `analyse` | Analyse for potential issues |
+| `validate` | Validate FSM structure |
+| `run` | Interactive execution |
+| `view` | Visualise (PNG + open viewer) |
+| `edit` | Open visual editor (invokes fsmedit) |
 
 #### convert
 
@@ -265,6 +318,47 @@ fsm dot input.fsm -t "My State Machine" | dot -Tsvg -o output.svg
 fsm dot input.fsm -o output.dot
 ```
 
+#### png
+
+Generate PNG image directly (shorthand for `dot | dot -Tpng`).
+
+```bash
+fsm png <input> [-o output] [-t title]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output file (default: input name + .png) |
+| `-t, --title` | Diagram title |
+
+**Examples:**
+
+```bash
+# Generate beatles.png from beatles.fsm
+fsm png beatles.fsm
+
+# Custom output and title
+fsm png beatles.fsm -o fab_four.png -t "Fab Four Workflow"
+```
+
+Requires Graphviz `dot` to be installed.
+
+#### svg
+
+Generate SVG image directly (shorthand for `dot | dot -Tsvg`).
+
+```bash
+fsm svg <input> [-o output] [-t title]
+```
+
+Same options as `png`. SVG is useful for web embedding and scalable graphics.
+
+```bash
+fsm svg beatles.fsm -o diagram.svg
+```
+
 #### info
 
 Display FSM information.
@@ -303,6 +397,79 @@ Validates:
 - All referenced inputs exist
 - Initial state is defined
 - Accepting states exist
+
+#### analyse
+
+Analyse FSM for potential design issues (warnings, not errors).
+
+```bash
+fsm analyse <input>
+```
+
+Also accepts American spelling: `fsm analyze`
+
+**Checks performed:**
+
+| Check | Description |
+|-------|-------------|
+| `unreachable` | States not reachable from initial state |
+| `dead` | States with no outgoing transitions (except accepting states) |
+| `nondeterministic` | DFA states with multiple transitions on same input |
+| `incomplete` | DFA states missing transitions for some inputs |
+| `unused_input` | Inputs defined but never used in transitions |
+| `unused_output` | Outputs defined but never used (Moore/Mealy) |
+
+**Example output:**
+
+```
+Found 3 issue(s):
+
+  [unreachable] 1 state(s) not reachable from initial state
+    States: [orphan]
+  [dead] 1 state(s) have no outgoing transitions
+    States: [sink]
+  [unused_input] 2 input(s) not used in any transition
+```
+
+#### generate
+
+Generate executable code from FSM definition.
+
+```bash
+fsm generate <input> --lang <c|rust|go|tinygo> [-o output] [--package name]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--lang, -l` | Target language (required) |
+| `-o, --output` | Output file (default: stdout) |
+| `--package, -p` | Package name (Go only, default: fsm) |
+
+**Languages:**
+
+| Language | Output | Description |
+|----------|--------|-------------|
+| `c` | Header file (.h) | Single-file header with implementation |
+| `rust` | Module (.rs) | Idiomatic Rust with enums |
+| `go` | Package (.go) | Standard Go, TinyGo compatible |
+| `tinygo` | Package (.go) | Alias for `go` |
+
+**Examples:**
+
+```bash
+# Generate C header
+fsm generate machine.fsm --lang c -o machine.h
+
+# Generate Rust module
+fsm generate machine.fsm --lang rust -o machine.rs
+
+# Generate Go package
+fsm generate machine.fsm --lang go --package myfsm -o myfsm.go
+```
+
+See the **Code Generation** section below for detailed usage and limitations.
 
 #### run
 
@@ -347,6 +514,176 @@ Reset to initial state
 State: green -> go
 > quit
 ```
+
+#### view
+
+Visualise FSM as PNG and open with system viewer.
+
+```bash
+fsm view <input> [-t title]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-t, --title` | Set diagram title (default: FSM name) |
+
+**Requirements:**
+
+Requires Graphviz `dot` command. Install from https://graphviz.org/download/
+
+```bash
+# macOS
+brew install graphviz
+
+# Ubuntu/Debian
+sudo apt install graphviz
+
+# Windows
+choco install graphviz
+```
+
+**Behaviour:**
+
+1. Generates DOT representation
+2. Converts to PNG using `dot`
+3. Opens PNG with system viewer:
+   - macOS: `open`
+   - Linux: `xdg-open`
+   - Windows: `explorer.exe`
+
+**Examples:**
+
+```bash
+# View FSM diagram
+fsm view beatles.fsm
+
+# With custom title
+fsm view beatles.fsm -t "Fab Four Workflow"
+```
+
+#### edit
+
+Open the visual FSM editor (fsmedit).
+
+```bash
+fsm edit [file]
+```
+
+**Search order for fsmedit:**
+
+1. `PATH` environment variable
+2. Current working directory
+3. Same directory as the `fsm` executable
+
+**Examples:**
+
+```bash
+# Start with empty FSM
+fsm edit
+
+# Open existing file
+fsm edit examples/beatles.fsm
+```
+
+This is a convenience wrapper that locates and invokes `fsmedit`. All arguments are passed through.
+
+### fsmedit - Visual Editor
+
+A text-based visual editor for creating and modifying FSMs.
+
+```bash
+# Start with empty FSM
+./fsmedit
+
+# Open existing file
+./fsmedit examples/traffic_light.fsm
+```
+
+#### Interface
+
+The editor has three main areas:
+
+1. **Canvas** (left) - Visual state placement and cursor
+2. **Sidebar** (right) - Lists states, inputs, outputs, transitions
+3. **Status bar** (bottom) - File info, mode, messages, help
+
+#### Modes
+
+| Mode | Description |
+|------|-------------|
+| MENU | Main menu for file operations |
+| CANVAS | Edit states and transitions visually |
+| INPUT | Text input for names |
+| FILE SELECT | Choose file to open |
+| SELECT TYPE | Choose FSM type |
+
+#### Canvas Mode Keys
+
+| Key | Action |
+|-----|--------|
+| Arrow keys | Move cursor |
+| Enter | Add state at cursor |
+| Tab | Cycle through states |
+| Delete/Backspace | Delete selected state |
+| T | Add transition from selected state |
+| I | Add input symbol |
+| O | Add output symbol |
+| S | Set selected as initial state |
+| A | Toggle accepting state |
+| M | Set Moore output (Moore machines) |
+| W | Toggle arc (wire) visibility |
+| Esc | Return to menu |
+
+#### Global Keys
+
+| Key | Action |
+|-----|--------|
+| Ctrl+C (Cmd+C) | Copy FSM as hex to clipboard |
+| Ctrl+S (Cmd+S) | Save |
+| Ctrl+Z (Cmd+Z) | Undo |
+| Ctrl+Y (Cmd+Y) | Redo |
+
+#### Mouse Support
+
+- **Left click** on canvas to move cursor
+- **Left click** on states to select them
+- **Left click** on menu items to activate
+- **Right click + drag** on a state to reposition it (arcs update in real-time)
+
+#### Layout Persistence
+
+State positions are automatically saved to `layout.toml` inside the .fsm file. When reopening a file, states appear where you left them.
+
+#### Automatic Layout
+
+When opening an FSM without saved positions, fsmedit automatically arranges states using a smart layout algorithm:
+
+| Algorithm | Used When | Description |
+|-----------|-----------|-------------|
+| Hierarchical | Linear chains, small FSMs (≤8 states) | BFS layers from initial state |
+| Circular | Medium FSMs (5-15 states) | States around a circle |
+| Force-Directed | Dense graphs (>15 states) | Physics simulation for spacing |
+
+The algorithm is chosen based on:
+- Number of states
+- Graph structure (linear, cyclic, dense)
+- Transition density
+
+After auto-layout, you can drag states to refine positions.
+
+#### Workflow Example
+
+1. Start editor: `./fsmedit`
+2. Select "New FSM" from menu
+3. Press Esc to enter canvas mode
+4. Use arrow keys to position cursor
+5. Press Enter to add a state
+6. Press I to add input symbols
+7. Select a state with Tab
+8. Press T to add transition
+9. Press Ctrl+S to save
 
 ---
 
@@ -396,6 +733,141 @@ Generate a sample 24-floor elevator FSM.
 
 ```bash
 python3 elevator_fsm.py > elevator.hex
+```
+
+---
+
+## Code Generation
+
+The `fsm generate` command produces executable code from FSM definitions. Generated code is standalone with no runtime dependencies.
+
+### Use Cases
+
+**Embedded systems**: Generate C code for microcontrollers. The code uses only `uint16_t` types and switch statements — no heap allocation, no dynamic dispatch.
+
+**Rust applications**: Generate type-safe Rust with pattern matching. Integrates naturally with Rust's ownership model.
+
+**Go/TinyGo**: Generate Go packages suitable for both standard Go and TinyGo (for WebAssembly, embedded). Uses `uint16` types and avoids reflection.
+
+**Protocol implementations**: Model protocol state machines (TCP, USB, custom protocols) and generate the state handling code.
+
+**Game AI**: Define NPC behaviour as FSMs, generate code for game engines.
+
+### Generated API
+
+All languages generate equivalent APIs:
+
+| Function | C | Rust | Go |
+|----------|---|------|-----|
+| Create/init | `name_init(&fsm)` | `Name::new()` | `NewName()` |
+| Reset | `name_reset(&fsm)` | `fsm.reset()` | `fsm.Reset()` |
+| Step | `name_step(&fsm, input)` | `fsm.step(input)` | `fsm.Step(input)` |
+| Can step | `name_can_step(&fsm, input)` | `fsm.can_step(input)` | `fsm.CanStep(input)` |
+| Get state | `name_get_state(&fsm)` | `fsm.state()` | `fsm.State()` |
+| Get output | `name_get_output(&fsm)` | `fsm.output()` | `fsm.Output()` |
+| Is accepting | `name_is_accepting(&fsm)` | `fsm.is_accepting()` | `fsm.IsAccepting()` |
+| State name | `name_state_name(state)` | `state.to_string()` | `state.String()` |
+| Input name | `name_input_name(input)` | `input.to_string()` | `input.String()` |
+| Output name | `name_output_name(output)` | `output.to_string()` | `output.String()` |
+
+### C Output
+
+Header-only library using `#define` guards:
+
+```c
+// In exactly ONE .c file:
+#define MYFSM_IMPLEMENTATION
+#include "myfsm.h"
+
+// In other files:
+#include "myfsm.h"
+
+// Usage:
+myfsm_t fsm;
+myfsm_init(&fsm);
+
+if (myfsm_can_step(&fsm, MYFSM_INPUT_START)) {
+    myfsm_step(&fsm, MYFSM_INPUT_START);
+    printf("State: %s\n", myfsm_state_name(myfsm_get_state(&fsm)));
+}
+```
+
+**Features:**
+- `typedef uint16_t` for state/input/output types
+- `#define` constants for states, inputs, outputs
+- Name lookup functions for debugging
+- No heap allocation
+- C89 compatible (except for `bool` from `<stdbool.h>`)
+
+### Rust Output
+
+Idiomatic Rust module:
+
+```rust
+use myfsm::{MyFsm, MyFsmInput, MyFsmState};
+
+let mut fsm = MyFsm::new();
+
+if fsm.can_step(MyFsmInput::Start) {
+    fsm.step(MyFsmInput::Start);
+    println!("State: {}", fsm.state());
+}
+```
+
+**Features:**
+- `#[repr(u16)]` enums for compact representation
+- `#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]` on enums
+- `std::fmt::Display` implementations
+- `Default` implementation
+- Pattern matching in `step()` and `can_step()`
+
+### Go Output
+
+Standard Go package (TinyGo compatible):
+
+```go
+import "myfsm"
+
+fsm := myfsm.NewMyFsm()
+
+if fsm.CanStep(myfsm.MyFsmInputStart) {
+    fsm.Step(myfsm.MyFsmInputStart)
+    fmt.Println("State:", fsm.State())
+}
+```
+
+**Features:**
+- `uint16` types for state/input/output
+- `String()` methods implementing `fmt.Stringer`
+- No reflection, no `interface{}`
+- No heap allocation in `Step()`
+- Compatible with TinyGo for WASM/embedded
+
+### Limitations
+
+**No NFA support**: Generated code only handles deterministic transitions. NFAs with epsilon transitions or multiple target states will only use the first target.
+
+**No runtime modification**: The FSM structure is compiled into switch statements. You cannot add/remove states or transitions at runtime.
+
+**Large FSMs**: For FSMs with thousands of states, the generated switch statements may be large. Consider table-driven approaches for very large FSMs.
+
+**No history/trace**: Generated code only tracks current state and output. For debugging, you need to add your own logging around `step()` calls.
+
+**Name sanitisation**: State/input/output names are converted to valid identifiers. Special characters become underscores; names starting with digits get a prefix.
+
+### Examples
+
+Generate code for the Beatles FSM:
+
+```bash
+# C header
+fsm generate beatles.fsm --lang c -o beatles.h
+
+# Rust module  
+fsm generate beatles.fsm --lang rust -o beatles.rs
+
+# Go package
+fsm generate beatles.fsm --lang go --package beatles -o beatles/beatles.go
 ```
 
 ---

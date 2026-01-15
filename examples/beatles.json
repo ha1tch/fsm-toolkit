@@ -1,0 +1,73 @@
+{
+  "type": "moore",
+  "name": "The Beatles",
+  "description": "Creative workflow of the band",
+  "states": [
+    "meditation",
+    "composing",
+    "rehearsing",
+    "recording",
+    "mixing",
+    "playing_radio",
+    "playing_theatre",
+    "playing_tv",
+    "playing_rooftop",
+    "playing_stadium"
+  ],
+  "alphabet": [
+    "inspire",
+    "write",
+    "practice",
+    "tape",
+    "produce",
+    "broadcast",
+    "perform",
+    "finish"
+  ],
+  "initial": "meditation",
+  "accepting": [],
+  "transitions": [
+    {"from": "meditation", "input": "inspire", "to": "composing"},
+    {"from": "composing", "input": "write", "to": "rehearsing"},
+    {"from": "rehearsing", "input": "practice", "to": "rehearsing"},
+    {"from": "rehearsing", "input": "tape", "to": "recording"},
+    {"from": "rehearsing", "input": "perform", "to": "playing_theatre"},
+    {"from": "recording", "input": "tape", "to": "recording"},
+    {"from": "recording", "input": "produce", "to": "mixing"},
+    {"from": "mixing", "input": "produce", "to": "mixing"},
+    {"from": "mixing", "input": "broadcast", "to": "playing_radio"},
+    {"from": "mixing", "input": "finish", "to": "meditation"},
+    {"from": "playing_radio", "input": "finish", "to": "meditation"},
+    {"from": "playing_theatre", "input": "perform", "to": "playing_stadium"},
+    {"from": "playing_theatre", "input": "broadcast", "to": "playing_tv"},
+    {"from": "playing_theatre", "input": "finish", "to": "meditation"},
+    {"from": "playing_tv", "input": "finish", "to": "meditation"},
+    {"from": "playing_stadium", "input": "finish", "to": "meditation"},
+    {"from": "playing_stadium", "input": "inspire", "to": "playing_rooftop"},
+    {"from": "playing_rooftop", "input": "finish", "to": "meditation"}
+  ],
+  "state_outputs": {
+    "meditation": "silence",
+    "composing": "ideas",
+    "rehearsing": "sound",
+    "recording": "tracks",
+    "mixing": "master",
+    "playing_radio": "airwaves",
+    "playing_theatre": "applause",
+    "playing_tv": "broadcast",
+    "playing_rooftop": "legend",
+    "playing_stadium": "mania"
+  },
+  "output_alphabet": [
+    "silence",
+    "ideas",
+    "sound",
+    "tracks",
+    "master",
+    "airwaves",
+    "applause",
+    "broadcast",
+    "legend",
+    "mania"
+  ]
+}

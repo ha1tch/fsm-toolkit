@@ -170,17 +170,27 @@ func sortedKeys(m map[int]string) []int {
 
 // WriteFSMFile writes an FSM to a .fsm file.
 func WriteFSMFile(path string, f *fsm.FSM, includeLabels bool) error {
+	return WriteFSMFileWithLayout(path, f, includeLabels, nil, 0, 0)
+}
+
+// WriteFSMFileWithLayout writes an FSM with layout metadata.
+func WriteFSMFileWithLayout(path string, f *fsm.FSM, includeLabels bool, positions map[string][2]int, offsetX, offsetY int) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	
-	return WriteFSM(file, f, includeLabels)
+	return WriteFSMWithLayout(file, f, includeLabels, positions, offsetX, offsetY)
 }
 
 // WriteFSM writes an FSM to a writer in .fsm format.
 func WriteFSM(w io.Writer, f *fsm.FSM, includeLabels bool) error {
+	return WriteFSMWithLayout(w, f, includeLabels, nil, 0, 0)
+}
+
+// WriteFSMWithLayout writes an FSM with layout to a writer.
+func WriteFSMWithLayout(w io.Writer, f *fsm.FSM, includeLabels bool, positions map[string][2]int, offsetX, offsetY int) error {
 	zw := zip.NewWriter(w)
 	defer zw.Close()
 	
@@ -209,44 +219,68 @@ func WriteFSM(w io.Writer, f *fsm.FSM, includeLabels bool) error {
 		}
 	}
 	
+	// Write layout.toml if positions provided
+	if len(positions) > 0 {
+		layoutContent := GenerateLayout(positions, offsetX, offsetY)
+		lw, err := zw.Create("layout.toml")
+		if err != nil {
+			return err
+		}
+		if _, err := lw.Write([]byte(layoutContent)); err != nil {
+			return err
+		}
+	}
+	
 	return nil
 }
 
 // ReadFSMFile reads an FSM from a .fsm file.
 func ReadFSMFile(path string) (*fsm.FSM, error) {
+	f, _, err := ReadFSMFileWithLayout(path)
+	return f, err
+}
+
+// ReadFSMFileWithLayout reads an FSM and layout from a .fsm file.
+func ReadFSMFileWithLayout(path string) (*fsm.FSM, *Layout, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer file.Close()
 	
 	info, err := file.Stat()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	
-	return ReadFSM(file, info.Size())
+	return ReadFSMWithLayout(file, info.Size())
 }
 
 // ReadFSM reads an FSM from a reader containing .fsm format.
 func ReadFSM(r io.ReaderAt, size int64) (*fsm.FSM, error) {
+	f, _, err := ReadFSMWithLayout(r, size)
+	return f, err
+}
+
+// ReadFSMWithLayout reads an FSM and layout from a reader.
+func ReadFSMWithLayout(r io.ReaderAt, size int64) (*fsm.FSM, *Layout, error) {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	
-	var hexContent, labelsContent string
+	var hexContent, labelsContent, layoutContent string
 	
 	for _, f := range zr.File {
 		rc, err := f.Open()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		
 		data, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		
 		switch f.Name {
@@ -254,31 +288,48 @@ func ReadFSM(r io.ReaderAt, size int64) (*fsm.FSM, error) {
 			hexContent = string(data)
 		case "labels.toml":
 			labelsContent = string(data)
+		case "layout.toml":
+			layoutContent = string(data)
 		}
 	}
 	
 	if hexContent == "" {
-		return nil, fmt.Errorf("machine.hex not found in archive")
+		return nil, nil, fmt.Errorf("machine.hex not found in archive")
 	}
 	
 	records, err := ParseHex(hexContent)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	
 	var labels *Labels
 	if labelsContent != "" {
 		labels, err = ParseLabels(labelsContent)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	
-	return RecordsToFSM(records, labels)
+	var layout *Layout
+	if layoutContent != "" {
+		layout, err = ParseLayout(layoutContent)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	
+	fsmResult, err := RecordsToFSM(records, labels)
+	return fsmResult, layout, err
 }
 
 // ReadFSMBytes reads an FSM from bytes in .fsm format.
 func ReadFSMBytes(data []byte) (*fsm.FSM, error) {
 	r := bytes.NewReader(data)
 	return ReadFSM(r, int64(len(data)))
+}
+
+// ReadFSMBytesWithLayout reads an FSM and layout from bytes.
+func ReadFSMBytesWithLayout(data []byte) (*fsm.FSM, *Layout, error) {
+	r := bytes.NewReader(data)
+	return ReadFSMWithLayout(r, int64(len(data)))
 }

@@ -1,0 +1,15 @@
+{
+  "name": "Dead End States",
+  "type": "dfa",
+  "description": "Analyse warning: states 'trap' and 'sink' have no outgoing transitions",
+  "states": ["s0", "s1", "trap", "sink"],
+  "alphabet": ["a", "b", "c"],
+  "initial": "s0",
+  "accepting": ["s1"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s0", "input": "b", "to": "trap"},
+    {"from": "s0", "input": "c", "to": "sink"},
+    {"from": "s1", "input": "a", "to": "s0"}
+  ]
+}

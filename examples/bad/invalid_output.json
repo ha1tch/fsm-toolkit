@@ -1,0 +1,13 @@
+{
+  "name": "Invalid Output Symbol",
+  "type": "mealy",
+  "description": "Invalid: transition output 'buzz' is not in output alphabet",
+  "states": ["s0", "s1"],
+  "alphabet": ["a", "b"],
+  "output_alphabet": ["x", "y"],
+  "initial": "s0",
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1", "output": "x"},
+    {"from": "s1", "input": "b", "to": "s0", "output": "buzz"}
+  ]
+}

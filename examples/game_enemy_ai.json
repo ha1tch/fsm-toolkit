@@ -1,0 +1,41 @@
+{
+  "name": "Enemy AI",
+  "type": "moore",
+  "description": "Simple game enemy behavior state machine",
+  "states": ["idle", "patrol", "alert", "chase", "attack", "flee", "dead"],
+  "alphabet": ["see_player", "lose_player", "player_near", "player_far", "take_damage", "health_low", "health_zero", "timeout"],
+  "initial": "idle",
+  "state_outputs": {
+    "idle": "standing",
+    "patrol": "walking",
+    "alert": "searching",
+    "chase": "running",
+    "attack": "attacking",
+    "flee": "running_away",
+    "dead": "collapsed"
+  },
+  "transitions": [
+    {"from": "idle", "input": "timeout", "to": "patrol"},
+    {"from": "idle", "input": "see_player", "to": "alert"},
+    {"from": "idle", "input": "take_damage", "to": "alert"},
+    {"from": "patrol", "input": "see_player", "to": "chase"},
+    {"from": "patrol", "input": "take_damage", "to": "alert"},
+    {"from": "patrol", "input": "timeout", "to": "idle"},
+    {"from": "alert", "input": "see_player", "to": "chase"},
+    {"from": "alert", "input": "timeout", "to": "patrol"},
+    {"from": "alert", "input": "health_low", "to": "flee"},
+    {"from": "chase", "input": "player_near", "to": "attack"},
+    {"from": "chase", "input": "lose_player", "to": "alert"},
+    {"from": "chase", "input": "health_low", "to": "flee"},
+    {"from": "attack", "input": "player_far", "to": "chase"},
+    {"from": "attack", "input": "health_low", "to": "flee"},
+    {"from": "attack", "input": "lose_player", "to": "alert"},
+    {"from": "flee", "input": "lose_player", "to": "idle"},
+    {"from": "flee", "input": "health_zero", "to": "dead"},
+    {"from": "idle", "input": "health_zero", "to": "dead"},
+    {"from": "patrol", "input": "health_zero", "to": "dead"},
+    {"from": "alert", "input": "health_zero", "to": "dead"},
+    {"from": "chase", "input": "health_zero", "to": "dead"},
+    {"from": "attack", "input": "health_zero", "to": "dead"}
+  ]
+}

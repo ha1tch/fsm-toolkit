@@ -1,0 +1,13 @@
+{
+  "name": "Unused Alphabet Symbols",
+  "type": "mealy",
+  "description": "Analyse warning: input 'c' and output 'beep' are never used",
+  "states": ["s0", "s1"],
+  "alphabet": ["a", "b", "c"],
+  "output_alphabet": ["x", "y", "beep"],
+  "initial": "s0",
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1", "output": "x"},
+    {"from": "s1", "input": "b", "to": "s0", "output": "y"}
+  ]
+}

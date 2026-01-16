@@ -1,0 +1,15 @@
+{
+  "name": "Turnstile",
+  "type": "mealy",
+  "description": "Classic turnstile example - locked until coin inserted",
+  "states": ["locked", "unlocked"],
+  "alphabet": ["coin", "push"],
+  "output_alphabet": ["click", "open", "alarm"],
+  "initial": "locked",
+  "transitions": [
+    {"from": "locked", "input": "coin", "to": "unlocked", "output": "click"},
+    {"from": "locked", "input": "push", "to": "locked", "output": "alarm"},
+    {"from": "unlocked", "input": "coin", "to": "unlocked", "output": "click"},
+    {"from": "unlocked", "input": "push", "to": "locked", "output": "open"}
+  ]
+}

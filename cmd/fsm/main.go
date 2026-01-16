@@ -90,78 +90,107 @@ func main() {
 
 func cmdConvert(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: fsm convert <input> [-o output] [--pretty] [--no-labels]")
+		fmt.Fprintln(os.Stderr, "Usage: fsm convert <input>... [-o output] [--pretty] [--no-labels]")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Supports wildcards: fsm convert *.json -o .fsm")
+		fmt.Fprintln(os.Stderr, "When converting multiple files, -o specifies the output extension")
 		os.Exit(1)
 	}
 
-	input := args[0]
-	var output string
+	var inputs []string
+	var outputSpec string
 	pretty := false
 	noLabels := false
 
-	for i := 1; i < len(args); i++ {
+	// Parse arguments
+	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-o", "--output":
 			if i+1 < len(args) {
-				output = args[i+1]
+				outputSpec = args[i+1]
 				i++
 			}
 		case "--pretty":
 			pretty = true
 		case "--no-labels":
 			noLabels = true
-		}
-	}
-
-	// Load input
-	f, err := loadFSM(input)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading %s: %v\n", input, err)
-		os.Exit(1)
-	}
-
-	// Determine output format
-	if output == "" {
-		// Default: change extension
-		ext := filepath.Ext(input)
-		base := strings.TrimSuffix(input, ext)
-		switch ext {
-		case ".json":
-			output = base + ".fsm"
-		case ".fsm", ".hex":
-			output = base + ".json"
 		default:
-			output = base + ".fsm"
+			// Expand wildcards
+			matches, err := filepath.Glob(args[i])
+			if err != nil || len(matches) == 0 {
+				// Not a glob or no matches - use as-is
+				inputs = append(inputs, args[i])
+			} else {
+				inputs = append(inputs, matches...)
+			}
 		}
 	}
 
-	// Write output
-	outExt := filepath.Ext(output)
-	switch outExt {
-	case ".fsm":
-		err = fsmfile.WriteFSMFile(output, f, !noLabels)
-	case ".json":
-		data, jerr := fsmfile.ToJSON(f, pretty)
-		if jerr != nil {
-			err = jerr
-		} else {
-			err = os.WriteFile(output, data, 0644)
+	if len(inputs) == 0 {
+		fmt.Fprintln(os.Stderr, "No input files specified")
+		os.Exit(1)
+	}
+
+	// Process each input file
+	for _, input := range inputs {
+		output := outputSpec
+
+		// Determine output filename
+		if output == "" {
+			// Default: change extension
+			ext := filepath.Ext(input)
+			base := strings.TrimSuffix(input, ext)
+			switch ext {
+			case ".json":
+				output = base + ".fsm"
+			case ".fsm", ".hex":
+				output = base + ".json"
+			default:
+				output = base + ".fsm"
+			}
+		} else if strings.HasPrefix(output, ".") {
+			// Output is just an extension - apply to input basename
+			ext := filepath.Ext(input)
+			base := strings.TrimSuffix(input, ext)
+			output = base + outputSpec
 		}
-	case ".hex":
-		records, _, _, _ := fsmfile.FSMToRecords(f)
-		hex := fsmfile.FormatHex(records, 4)
-		err = os.WriteFile(output, []byte(hex+"\n"), 0644)
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown output format: %s\n", outExt)
-		os.Exit(1)
-	}
+		// else: output is a full filename (only valid for single input)
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", output, err)
-		os.Exit(1)
-	}
+		// Load input
+		f, err := loadFSM(input)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading %s: %v\n", input, err)
+			continue
+		}
 
-	fmt.Printf("Written: %s\n", output)
+		// Write output
+		outExt := filepath.Ext(output)
+		switch outExt {
+		case ".fsm":
+			err = fsmfile.WriteFSMFile(output, f, !noLabels)
+		case ".json":
+			data, jerr := fsmfile.ToJSON(f, pretty)
+			if jerr != nil {
+				err = jerr
+			} else {
+				err = os.WriteFile(output, data, 0644)
+			}
+		case ".hex":
+			records, _, _, _ := fsmfile.FSMToRecords(f)
+			hex := fsmfile.FormatHex(records, 4)
+			err = os.WriteFile(output, []byte(hex+"\n"), 0644)
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown output format: %s\n", outExt)
+			continue
+		}
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", output, err)
+			continue
+		}
+
+		fmt.Printf("Converted: %s -> %s\n", input, output)
+	}
 }
 
 func cmdDot(args []string) {
@@ -223,21 +252,37 @@ func cmdImage(args []string, format string) {
 
 	// Check for help flag
 	if args[0] == "-h" || args[0] == "--help" {
-		fmt.Printf("Usage: fsm %s <input> [-o output] [-t title]\n", format)
+		fmt.Printf("Usage: fsm %s <input> [-o output] [-t title] [--native] [native options...]\n", format)
 		fmt.Println("")
 		fmt.Printf("Generates a %s image from the FSM.\n", strings.ToUpper(format))
 		fmt.Println("")
 		fmt.Println("Options:")
 		fmt.Println("  -o, --output    Output file (default: input name with new extension)")
 		fmt.Println("  -t, --title     Set diagram title (default: FSM name or type)")
+		fmt.Println("  --native        Use built-in renderer (no Graphviz required)")
 		fmt.Println("")
-		fmt.Println("Requires Graphviz 'dot' to be installed:")
+		fmt.Println("Native renderer options (only with --native):")
+		fmt.Println("  --font-size N   Base font size in pixels (default: 14)")
+		fmt.Println("  --spacing N     Node spacing multiplier (default: 1.5)")
+		fmt.Println("  --width N       Canvas width in pixels (default: 800)")
+		fmt.Println("  --height N      Canvas height in pixels (default: 600)")
+		if format == "svg" {
+			fmt.Println("  --shape SHAPE   State shape: circle, ellipse, rect, roundrect, diamond")
+		}
+		fmt.Println("")
+		fmt.Println("Without --native, requires Graphviz 'dot' to be installed:")
 		fmt.Println("  https://graphviz.org/download/")
 		return
 	}
 
 	input := args[0]
 	var output, title string
+	native := false
+	fontSize := 0
+	shape := ""
+	spacing := 0.0
+	canvasWidth := 0
+	canvasHeight := 0
 
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
@@ -251,6 +296,33 @@ func cmdImage(args []string, format string) {
 				title = args[i+1]
 				i++
 			}
+		case "--native":
+			native = true
+		case "--font-size":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &fontSize)
+				i++
+			}
+		case "--shape":
+			if i+1 < len(args) {
+				shape = strings.ToLower(args[i+1])
+				i++
+			}
+		case "--spacing":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%f", &spacing)
+				i++
+			}
+		case "--width":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &canvasWidth)
+				i++
+			}
+		case "--height":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &canvasHeight)
+				i++
+			}
 		}
 	}
 
@@ -260,21 +332,7 @@ func cmdImage(args []string, format string) {
 		output = base + "." + format
 	}
 
-	// Check if dot is available
-	dotPath, err := exec.LookPath("dot")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error: Graphviz 'dot' command not found in PATH.")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Please install Graphviz from: https://graphviz.org/download/")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Installation:")
-		fmt.Fprintln(os.Stderr, "  macOS:   brew install graphviz")
-		fmt.Fprintln(os.Stderr, "  Ubuntu:  sudo apt install graphviz")
-		fmt.Fprintln(os.Stderr, "  Windows: choco install graphviz")
-		os.Exit(1)
-	}
-
-	// Load FSM
+	// Load FSM first
 	f, err := loadFSM(input)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading %s: %v\n", input, err)
@@ -288,6 +346,99 @@ func cmdImage(args []string, format string) {
 		} else {
 			title = fmt.Sprintf("%s: %d states", strings.ToUpper(string(f.Type)), len(f.States))
 		}
+	}
+
+	// Native SVG rendering (no Graphviz needed)
+	if native {
+		if format == "svg" {
+			opts := fsmfile.DefaultSVGOptions()
+			opts.Title = title
+			
+			// Apply custom options
+			if fontSize > 0 {
+				opts.FontSize = fontSize
+			}
+			if spacing > 0 {
+				opts.NodeSpacing = spacing
+			}
+			if canvasWidth > 0 {
+				opts.Width = canvasWidth
+			}
+			if canvasHeight > 0 {
+				opts.Height = canvasHeight
+			}
+			
+			// Parse shape option
+			switch shape {
+			case "circle":
+				opts.StateShape = fsmfile.ShapeCircle
+			case "ellipse":
+				opts.StateShape = fsmfile.ShapeEllipse
+			case "rect", "rectangle":
+				opts.StateShape = fsmfile.ShapeRect
+			case "roundrect", "rounded":
+				opts.StateShape = fsmfile.ShapeRoundRect
+			case "diamond":
+				opts.StateShape = fsmfile.ShapeDiamond
+			}
+			
+			svg := fsmfile.GenerateSVGNative(f, opts)
+
+			if err := os.WriteFile(output, []byte(svg), 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", output, err)
+				os.Exit(1)
+			}
+			fmt.Printf("Generated: %s (native)\n", output)
+			return
+		} else if format == "png" {
+			opts := fsmfile.DefaultPNGOptions()
+			opts.Title = title
+			
+			// Apply custom options
+			if fontSize > 0 {
+				opts.FontSize = fontSize
+			}
+			if spacing > 0 {
+				opts.NodeSpacing = spacing
+			}
+			if canvasWidth > 0 {
+				opts.Width = canvasWidth
+			}
+			if canvasHeight > 0 {
+				opts.Height = canvasHeight
+			}
+			
+			outFile, err := os.Create(output)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", output, err)
+				os.Exit(1)
+			}
+			defer outFile.Close()
+			
+			if err := fsmfile.RenderPNG(f, outFile, opts); err != nil {
+				fmt.Fprintf(os.Stderr, "Error rendering PNG: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Generated: %s (native)\n", output)
+			return
+		}
+	}
+
+	// Check if dot is available
+	dotPath, err := exec.LookPath("dot")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: Graphviz 'dot' command not found in PATH.")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Tip: Use --native flag for built-in rendering without Graphviz:")
+		fmt.Fprintf(os.Stderr, "  fsm %s %s --native\n", format, input)
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Or install Graphviz from: https://graphviz.org/download/")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Installation:")
+		fmt.Fprintln(os.Stderr, "  macOS:   brew install graphviz")
+		fmt.Fprintln(os.Stderr, "  Ubuntu:  sudo apt install graphviz")
+		fmt.Fprintln(os.Stderr, "  Windows: choco install graphviz")
+		os.Exit(1)
 	}
 
 	// Generate DOT
@@ -389,6 +540,9 @@ func cmdAnalyse(args []string) {
 		fmt.Printf("  [%s] %s\n", w.Type, w.Message)
 		if len(w.States) > 0 {
 			fmt.Printf("    States: %v\n", w.States)
+		}
+		if len(w.Symbols) > 0 {
+			fmt.Printf("    Symbols: %v\n", w.Symbols)
 		}
 	}
 }

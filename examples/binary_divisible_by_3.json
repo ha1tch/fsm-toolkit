@@ -1,0 +1,17 @@
+{
+  "name": "Divisible by 3",
+  "type": "dfa",
+  "description": "Accepts binary strings representing numbers divisible by 3",
+  "states": ["r0", "r1", "r2"],
+  "alphabet": ["0", "1"],
+  "initial": "r0",
+  "accepting": ["r0"],
+  "transitions": [
+    {"from": "r0", "input": "0", "to": "r0"},
+    {"from": "r0", "input": "1", "to": "r1"},
+    {"from": "r1", "input": "0", "to": "r2"},
+    {"from": "r1", "input": "1", "to": "r0"},
+    {"from": "r2", "input": "0", "to": "r1"},
+    {"from": "r2", "input": "1", "to": "r2"}
+  ]
+}

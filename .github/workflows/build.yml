@@ -1,0 +1,138 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+            goarm: '7'
+          # macOS
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          # Windows
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          # FreeBSD
+          - goos: freebsd
+            goarch: amd64
+          - goos: freebsd
+            goarch: arm64
+          # OpenBSD
+          - goos: openbsd
+            goarch: amd64
+          - goos: openbsd
+            goarch: arm64
+          # NetBSD
+          - goos: netbsd
+            goarch: amd64
+          - goos: netbsd
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Set binary extension
+        id: ext
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            echo "ext=.exe" >> $GITHUB_OUTPUT
+          else
+            echo "ext=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build fsm
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          go build -trimpath -ldflags "-s -w" \
+            -o fsm-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }} \
+            ./cmd/fsm/
+
+      - name: Build fsmedit
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          go build -trimpath -ldflags "-s -w" \
+            -o fsmedit-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }} \
+            ./cmd/fsmedit/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            fsm-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }}
+            fsmedit-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }}
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: binaries-*
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*
+          generate_release_notes: true

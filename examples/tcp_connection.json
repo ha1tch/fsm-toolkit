@@ -1,0 +1,28 @@
+{
+  "name": "TCP Connection",
+  "type": "dfa",
+  "description": "Simplified TCP connection state machine",
+  "states": ["CLOSED", "LISTEN", "SYN_SENT", "SYN_RCVD", "ESTABLISHED", "FIN_WAIT_1", "FIN_WAIT_2", "CLOSING", "TIME_WAIT", "CLOSE_WAIT", "LAST_ACK"],
+  "alphabet": ["listen", "connect", "syn", "syn_ack", "ack", "close", "fin", "timeout"],
+  "initial": "CLOSED",
+  "accepting": ["ESTABLISHED"],
+  "transitions": [
+    {"from": "CLOSED", "input": "listen", "to": "LISTEN"},
+    {"from": "CLOSED", "input": "connect", "to": "SYN_SENT"},
+    {"from": "LISTEN", "input": "syn", "to": "SYN_RCVD"},
+    {"from": "LISTEN", "input": "close", "to": "CLOSED"},
+    {"from": "SYN_SENT", "input": "syn_ack", "to": "ESTABLISHED"},
+    {"from": "SYN_SENT", "input": "close", "to": "CLOSED"},
+    {"from": "SYN_RCVD", "input": "ack", "to": "ESTABLISHED"},
+    {"from": "SYN_RCVD", "input": "close", "to": "FIN_WAIT_1"},
+    {"from": "ESTABLISHED", "input": "close", "to": "FIN_WAIT_1"},
+    {"from": "ESTABLISHED", "input": "fin", "to": "CLOSE_WAIT"},
+    {"from": "FIN_WAIT_1", "input": "ack", "to": "FIN_WAIT_2"},
+    {"from": "FIN_WAIT_1", "input": "fin", "to": "CLOSING"},
+    {"from": "FIN_WAIT_2", "input": "fin", "to": "TIME_WAIT"},
+    {"from": "CLOSING", "input": "ack", "to": "TIME_WAIT"},
+    {"from": "TIME_WAIT", "input": "timeout", "to": "CLOSED"},
+    {"from": "CLOSE_WAIT", "input": "close", "to": "LAST_ACK"},
+    {"from": "LAST_ACK", "input": "ack", "to": "CLOSED"}
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "HTTP Request Line Parser",
+  "type": "dfa",
+  "description": "Parses HTTP request line: METHOD SP PATH SP VERSION CRLF",
+  "states": ["start", "method", "sp1", "path", "sp2", "version", "cr", "done", "error"],
+  "alphabet": ["letter", "space", "slash", "digit", "dot", "cr", "lf", "other"],
+  "initial": "start",
+  "accepting": ["done"],
+  "transitions": [
+    {"from": "start", "input": "letter", "to": "method"},
+    {"from": "start", "input": "space", "to": "error"},
+    {"from": "method", "input": "letter", "to": "method"},
+    {"from": "method", "input": "space", "to": "sp1"},
+    {"from": "sp1", "input": "slash", "to": "path"},
+    {"from": "sp1", "input": "letter", "to": "path"},
+    {"from": "path", "input": "letter", "to": "path"},
+    {"from": "path", "input": "slash", "to": "path"},
+    {"from": "path", "input": "digit", "to": "path"},
+    {"from": "path", "input": "dot", "to": "path"},
+    {"from": "path", "input": "space", "to": "sp2"},
+    {"from": "sp2", "input": "letter", "to": "version"},
+    {"from": "version", "input": "letter", "to": "version"},
+    {"from": "version", "input": "slash", "to": "version"},
+    {"from": "version", "input": "digit", "to": "version"},
+    {"from": "version", "input": "dot", "to": "version"},
+    {"from": "version", "input": "cr", "to": "cr"},
+    {"from": "cr", "input": "lf", "to": "done"},
+    {"from": "cr", "input": "other", "to": "error"}
+  ]
+}

@@ -4,7 +4,13 @@ A compact binary format for finite state machines with converters, visualisation
 
 Supports DFA, NFA, Moore, and Mealy machines. Up to 65K states, 65K inputs, 65K outputs.
 
-**See [MANUAL.md](MANUAL.md) for complete documentation.**
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [MANUAL.md](MANUAL.md) | Complete user guide |
+| [SPECIFICATION.md](SPECIFICATION.md) | Formal semantic guarantees |
+| [COMPATIBILITY.md](COMPATIBILITY.md) | Version stability promises |
 
 ## Quick Start
 
@@ -89,6 +95,20 @@ fsm-toolkit/
 ├── *.py             # Python scripts
 └── examples/        # Sample FSMs
 ```
+
+## Platform Notes
+
+### Windows
+
+**fsm** (CLI): Should work in most environments.
+
+**fsmedit** (TUI editor): Not tested on Windows. Likely to have rendering issues or outright fail in CMD.EXE and PowerShell. Windows Terminal may or may not work — use at your own risk.
+
+**Recommended**: Windows users should run fsmedit under WSL2 with a proper Linux terminal emulator.
+
+### Unix-like Systems
+
+Linux, macOS, FreeBSD, OpenBSD, and NetBSD should all work correctly with any modern terminal emulator.
 
 ## Example: Interactive Run
 

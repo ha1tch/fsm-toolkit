@@ -1,0 +1,15 @@
+{
+  "name": "Non-deterministic DFA",
+  "type": "dfa",
+  "description": "Analyse warning: DFA has multiple transitions on same input from state s0",
+  "states": ["s0", "s1", "s2"],
+  "alphabet": ["a", "b"],
+  "initial": "s0",
+  "accepting": ["s1", "s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s0", "input": "a", "to": "s2"},
+    {"from": "s1", "input": "b", "to": "s0"},
+    {"from": "s2", "input": "b", "to": "s0"}
+  ]
+}

@@ -5,13 +5,89 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsm"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsmfile"
 )
+
+// Config holds persistent editor settings
+type Config struct {
+	Renderer    string // "native" or "graphviz"
+	FileType    string // "png" or "svg"
+	LastDir     string // last used directory
+}
+
+// DefaultConfig returns default configuration
+func DefaultConfig() Config {
+	cwd, _ := os.Getwd()
+	return Config{
+		Renderer: "native",
+		FileType: "png",
+		LastDir:  cwd,
+	}
+}
+
+// ConfigPath returns the path to the config file
+func ConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".fsmedit"
+	}
+	return filepath.Join(home, ".fsmedit")
+}
+
+// LoadConfig loads configuration from TOML file
+func LoadConfig() Config {
+	cfg := DefaultConfig()
+	data, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		return cfg
+	}
+	
+	// Simple TOML parser for our settings
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "renderer") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				val := strings.Trim(strings.TrimSpace(parts[1]), "\"")
+				if val == "native" || val == "graphviz" {
+					cfg.Renderer = val
+				}
+			}
+		} else if strings.HasPrefix(line, "file_type") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				val := strings.Trim(strings.TrimSpace(parts[1]), "\"")
+				if val == "png" || val == "svg" {
+					cfg.FileType = val
+				}
+			}
+		} else if strings.HasPrefix(line, "last_dir") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				val := strings.Trim(strings.TrimSpace(parts[1]), "\"")
+				if val != "" {
+					cfg.LastDir = val
+				}
+			}
+		}
+	}
+	return cfg
+}
+
+// SaveConfig saves configuration to TOML file
+func SaveConfig(cfg Config) error {
+	content := fmt.Sprintf("# fsmedit configuration\nrenderer = \"%s\"\nfile_type = \"%s\"\nlast_dir = \"%s\"\n", 
+		cfg.Renderer, cfg.FileType, cfg.LastDir)
+	return os.WriteFile(ConfigPath(), []byte(content), 0644)
+}
 
 // Editor holds all editor state
 type Editor struct {
@@ -22,6 +98,7 @@ type Editor struct {
 	mode        Mode
 	message     string
 	messageType MessageType
+	config      Config
 
 	// Canvas state
 	canvasCursorX int
@@ -39,6 +116,12 @@ type Editor struct {
 	dragStateIdx  int
 	dragOffsetX   int // offset from mouse to state origin
 	dragOffsetY   int
+
+	// Left-button drag detection
+	leftMouseDown    bool
+	leftDownX        int
+	leftDownY        int
+	leftDownStateIdx int // state under cursor when left button pressed
 
 	// Move mode state (keyboard)
 	moveStateIdx int // state being moved
@@ -67,8 +150,12 @@ type Editor struct {
 	inputAction func(string)
 
 	// File picker state
-	fileList     []string
-	fileSelected int
+	fileList        []string
+	fileSelected    int
+	dirList         []string
+	dirSelected     int
+	currentDir      string
+	filePickerFocus int // 0 = directories, 1 = files
 }
 
 // Snapshot captures editor state for undo/redo
@@ -114,6 +201,7 @@ func main() {
 		selectedTrans: -1,
 		sidebarWidth:  30,
 		states:        make([]StatePos, 0),
+		config:        LoadConfig(),
 	}
 
 	// Check command line
@@ -139,22 +227,45 @@ func main() {
 	screen.Clear()
 
 	ed.screen = screen
-	ed.mode = ModeMenu
 	ed.showArcs = true // arcs visible by default
-	ed.menuItems = []string{
-		"New FSM",
-		"Open File",
-		"Save",
-		"Save As",
-		"Edit Canvas",
-		"Set FSM Type",
-		"Quit",
+	ed.updateMenuItems()
+
+	// If file was loaded from command line, go straight to canvas
+	if ed.filename != "" && len(ed.states) > 0 {
+		ed.mode = ModeCanvas
+	} else {
+		ed.mode = ModeMenu
 	}
 
 	// Main loop
 	ed.run()
 
 	screen.Fini()
+}
+
+func (ed *Editor) updateMenuItems() {
+	rendererLabel := "Renderer: Native"
+	if ed.config.Renderer == "graphviz" {
+		rendererLabel = "Renderer: Graphviz"
+	}
+	
+	fileTypeLabel := "File Type: PNG"
+	if ed.config.FileType == "svg" {
+		fileTypeLabel = "File Type: SVG"
+	}
+	
+	ed.menuItems = []string{
+		"New FSM",
+		"Open File",
+		"Save",
+		"Save As",
+		"Edit Canvas",
+		"Render",
+		rendererLabel,
+		fileTypeLabel,
+		"Set FSM Type",
+		"Quit",
+	}
 }
 
 func (ed *Editor) run() {
@@ -258,21 +369,29 @@ func (ed *Editor) handleMenuKey(ev *tcell.EventKey) bool {
 }
 
 func (ed *Editor) executeMenuItem() bool {
-	switch ed.menuItems[ed.menuSelected] {
-	case "New FSM":
+	item := ed.menuItems[ed.menuSelected]
+	
+	switch {
+	case item == "New FSM":
 		ed.newFSM()
-	case "Open File":
+	case item == "Open File":
 		ed.openFilePicker()
-	case "Save":
+	case item == "Save":
 		ed.save()
-	case "Save As":
+	case item == "Save As":
 		ed.saveAs()
-	case "Edit Canvas":
+	case item == "Edit Canvas":
 		ed.mode = ModeCanvas
-	case "Set FSM Type":
+	case item == "Render":
+		ed.renderView()
+	case strings.HasPrefix(item, "Renderer:"):
+		ed.toggleRenderer()
+	case strings.HasPrefix(item, "File Type:"):
+		ed.toggleFileType()
+	case item == "Set FSM Type":
 		ed.mode = ModeSelectType
 		ed.menuSelected = int(ed.fsmTypeIndex())
-	case "Quit":
+	case item == "Quit":
 		if ed.modified {
 			ed.inputPrompt = "Unsaved changes. Quit anyway? (y/n): "
 			ed.inputBuffer = ""
@@ -289,6 +408,34 @@ func (ed *Editor) executeMenuItem() bool {
 		}
 	}
 	return false
+}
+
+func (ed *Editor) toggleRenderer() {
+	if ed.config.Renderer == "native" {
+		ed.config.Renderer = "graphviz"
+		ed.showMessage("Renderer set to Graphviz", MsgInfo)
+	} else {
+		ed.config.Renderer = "native"
+		ed.showMessage("Renderer set to Native", MsgInfo)
+	}
+	ed.updateMenuItems()
+	if err := SaveConfig(ed.config); err != nil {
+		ed.showMessage("Failed to save config: "+err.Error(), MsgError)
+	}
+}
+
+func (ed *Editor) toggleFileType() {
+	if ed.config.FileType == "png" {
+		ed.config.FileType = "svg"
+		ed.showMessage("File type set to SVG", MsgInfo)
+	} else {
+		ed.config.FileType = "png"
+		ed.showMessage("File type set to PNG", MsgInfo)
+	}
+	ed.updateMenuItems()
+	if err := SaveConfig(ed.config); err != nil {
+		ed.showMessage("Failed to save config: "+err.Error(), MsgError)
+	}
 }
 
 func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
@@ -340,11 +487,22 @@ func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
 				ed.showMessage("Arcs hidden", MsgInfo)
 			}
 		case 'g', 'G':
+			// Check if cursor is on a state - if so, select it first
+			stateUnderCursor := ed.findStateAtCursor()
+			if stateUnderCursor >= 0 {
+				ed.selectedState = stateUnderCursor
+			}
 			if ed.selectedState >= 0 {
 				ed.startMoveMode()
 			} else {
 				ed.showMessage("Select a state first (Tab to cycle)", MsgInfo)
 			}
+		case 'l', 'L':
+			ed.runAnalysis()
+		case 'v', 'V':
+			ed.runValidate()
+		case 'r', 'R':
+			ed.renderView()
 		}
 	}
 	return false
@@ -373,22 +531,60 @@ func (ed *Editor) handleFilePickerKey(ev *tcell.EventKey) bool {
 	switch ev.Key() {
 	case tcell.KeyEscape:
 		ed.mode = ModeMenu
+	case tcell.KeyTab:
+		// Switch focus between directories and files
+		ed.filePickerFocus = 1 - ed.filePickerFocus
+	case tcell.KeyLeft:
+		ed.filePickerFocus = 0 // Focus directories
+	case tcell.KeyRight:
+		ed.filePickerFocus = 1 // Focus files
 	case tcell.KeyUp:
-		if ed.fileSelected > 0 {
-			ed.fileSelected--
+		if ed.filePickerFocus == 0 {
+			if ed.dirSelected > 0 {
+				ed.dirSelected--
+			}
+		} else {
+			if ed.fileSelected > 0 {
+				ed.fileSelected--
+			}
 		}
 	case tcell.KeyDown:
-		if ed.fileSelected < len(ed.fileList)-1 {
-			ed.fileSelected++
+		if ed.filePickerFocus == 0 {
+			if ed.dirSelected < len(ed.dirList)-1 {
+				ed.dirSelected++
+			}
+		} else {
+			if ed.fileSelected < len(ed.fileList)-1 {
+				ed.fileSelected++
+			}
 		}
 	case tcell.KeyEnter:
-		if len(ed.fileList) > 0 {
-			ed.filename = ed.fileList[ed.fileSelected]
-			if err := ed.loadFile(ed.filename); err != nil {
-				ed.showMessage("Error: "+err.Error(), MsgError)
+		if ed.filePickerFocus == 0 {
+			// Navigate to selected directory
+			selectedDir := ed.dirList[ed.dirSelected]
+			var newDir string
+			if selectedDir == ".." {
+				newDir = filepath.Dir(ed.currentDir)
 			} else {
-				ed.showMessage("Loaded: "+ed.filename, MsgSuccess)
-				ed.mode = ModeCanvas
+				newDir = filepath.Join(ed.currentDir, selectedDir)
+			}
+			ed.currentDir = newDir
+			ed.refreshFilePicker()
+		} else {
+			// Open selected file
+			if len(ed.fileList) > 0 {
+				fullPath := filepath.Join(ed.currentDir, ed.fileList[ed.fileSelected])
+				ed.filename = fullPath
+				if err := ed.loadFile(fullPath); err != nil {
+					ed.showMessage("Error: "+err.Error(), MsgError)
+				} else {
+					// Save last used directory
+					ed.config.LastDir = ed.currentDir
+					SaveConfig(ed.config)
+					
+					ed.showMessage("Loaded: "+ed.filename, MsgSuccess)
+					ed.mode = ModeCanvas
+				}
 			}
 		}
 	}
@@ -478,18 +674,17 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 	w, h := ed.screen.Size()
 	canvasW := w - ed.sidebarWidth
 
-	// Handle drag release
-	if ed.dragging && buttons&tcell.Button3 == 0 {
-		// Right button released - drop the state
+	// Handle drag release (either button)
+	if ed.dragging && buttons&tcell.Button3 == 0 && buttons&tcell.Button1 == 0 {
 		ed.dragging = false
 		ed.modified = true
 		ed.showMessage("State moved", MsgSuccess)
+		ed.leftMouseDown = false
 		return
 	}
 
-	// Handle ongoing drag
-	if ed.dragging && buttons&tcell.Button3 != 0 {
-		// Update state position while dragging
+	// Handle ongoing drag (either button)
+	if ed.dragging {
 		if ed.dragStateIdx >= 0 && ed.dragStateIdx < len(ed.states) {
 			newX := x - ed.dragOffsetX + ed.canvasOffsetX
 			newY := y - ed.dragOffsetY + ed.canvasOffsetY
@@ -505,15 +700,14 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 		return
 	}
 
-	// Right button pressed - start drag if on a state
+	// Right button pressed - start drag if on a state (legacy support)
 	if buttons&tcell.Button3 != 0 && !ed.dragging && ed.mode == ModeCanvas {
 		if x < canvasW && y < h-2 {
-			// Check if clicking on a state
 			for i, sp := range ed.states {
 				stateX := sp.X - ed.canvasOffsetX
 				stateY := sp.Y - ed.canvasOffsetY
-				stateW := len(sp.Name) + 4 // account for prefix/suffix chars
-				
+				stateW := len(sp.Name) + 4
+
 				if x >= stateX && x < stateX+stateW && y == stateY {
 					ed.saveSnapshot()
 					ed.dragging = true
@@ -529,19 +723,18 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 
 	// Left button handling
 	if buttons&tcell.Button1 != 0 {
-		if ed.mode == ModeMenu || ed.mode == ModeFilePicker || ed.mode == ModeSelectType {
+		if ed.mode == ModeMenu || ed.mode == ModeSelectType {
 			// Click on menu item
-			if x >= 10 && x < 40 && y >= 5 {
-				idx := y - 5
+			menuW, menuH := 40, len(ed.menuItems)+4
+			startX := (w - menuW) / 2
+			startY := (h - menuH) / 2
+			if x >= startX+1 && x < startX+menuW-1 && y >= startY+2 {
+				idx := y - startY - 2
 				switch ed.mode {
 				case ModeMenu:
 					if idx >= 0 && idx < len(ed.menuItems) {
 						ed.menuSelected = idx
 						ed.executeMenuItem()
-					}
-				case ModeFilePicker:
-					if idx >= 0 && idx < len(ed.fileList) {
-						ed.fileSelected = idx
 					}
 				case ModeSelectType:
 					if idx >= 0 && idx < 4 {
@@ -549,34 +742,97 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 					}
 				}
 			}
+		} else if ed.mode == ModeFilePicker {
+			// Two-column file picker mouse handling
+			totalW := 80
+			if totalW > w-4 {
+				totalW = w - 4
+			}
+			dirW := totalW / 3
+			boxX := (w - totalW) / 2
+			boxY := 2
+			
+			// Check if click is in directories column
+			if x >= boxX+1 && x < boxX+dirW && y >= boxY+5 {
+				idx := y - boxY - 5
+				if idx >= 0 && idx < len(ed.dirList) {
+					ed.filePickerFocus = 0
+					ed.dirSelected = idx
+				}
+			}
+			// Check if click is in files column
+			if x >= boxX+dirW+1 && x < boxX+totalW-1 && y >= boxY+5 {
+				idx := y - boxY - 5
+				if idx >= 0 && idx < len(ed.fileList) {
+					ed.filePickerFocus = 1
+					ed.fileSelected = idx
+				}
+			}
 		} else if ed.mode == ModeCanvas {
 			if x < canvasW && y < h-2 {
-				// Click on canvas
-				ed.canvasCursorX = x + ed.canvasOffsetX
-				ed.canvasCursorY = y + ed.canvasOffsetY
+				if !ed.leftMouseDown {
+					// Mouse just pressed - record position
+					ed.leftMouseDown = true
+					ed.leftDownX = x
+					ed.leftDownY = y
+					ed.leftDownStateIdx = -1
 
-				// Check if clicking on a state
-				ed.selectedState = -1
-				for i, sp := range ed.states {
-					stateX := sp.X - ed.canvasOffsetX
-					stateY := sp.Y - ed.canvasOffsetY
-					stateW := len(sp.Name) + 4
-					
-					if x >= stateX && x < stateX+stateW && y == stateY {
-						ed.selectedState = i
-						break
+					// Check if pressing on a state
+					for i, sp := range ed.states {
+						stateX := sp.X - ed.canvasOffsetX
+						stateY := sp.Y - ed.canvasOffsetY
+						stateW := len(sp.Name) + 4
+
+						if x >= stateX && x < stateX+stateW && y == stateY {
+							ed.leftDownStateIdx = i
+							break
+						}
+					}
+				} else {
+					// Mouse still held - check for drag
+					dx := x - ed.leftDownX
+					dy := y - ed.leftDownY
+					if (dx != 0 || dy != 0) && ed.leftDownStateIdx >= 0 {
+						// Started dragging a state
+						ed.saveSnapshot()
+						ed.dragging = true
+						ed.dragStateIdx = ed.leftDownStateIdx
+						ed.selectedState = ed.leftDownStateIdx
+						sp := ed.states[ed.leftDownStateIdx]
+						stateX := sp.X - ed.canvasOffsetX
+						stateY := sp.Y - ed.canvasOffsetY
+						ed.dragOffsetX = ed.leftDownX - stateX
+						ed.dragOffsetY = ed.leftDownY - stateY
 					}
 				}
-			} else if x >= canvasW {
-				// Click on sidebar - could select items there
 			}
 		}
-	} else if buttons&tcell.Button1 != 0 {
-		// Single click on canvas - could add more logic here
-		if ed.mode == ModeCanvas && x < canvasW && y < h-2 {
-			ed.canvasCursorX = x
-			ed.canvasCursorY = y
+	} else {
+		// Left button released
+		if ed.leftMouseDown && !ed.dragging {
+			// It was a click, not a drag
+			if ed.mode == ModeCanvas {
+				x, y := ed.leftDownX, ed.leftDownY
+				if x < canvasW && y < h-2 {
+					ed.canvasCursorX = x + ed.canvasOffsetX
+					ed.canvasCursorY = y + ed.canvasOffsetY
+
+					// Select state if clicked on one
+					ed.selectedState = -1
+					for i, sp := range ed.states {
+						stateX := sp.X - ed.canvasOffsetX
+						stateY := sp.Y - ed.canvasOffsetY
+						stateW := len(sp.Name) + 4
+
+						if x >= stateX && x < stateX+stateW && y == stateY {
+							ed.selectedState = i
+							break
+						}
+					}
+				}
+			}
 		}
+		ed.leftMouseDown = false
 	}
 }
 
@@ -599,15 +855,45 @@ func (ed *Editor) newFSM() {
 }
 
 func (ed *Editor) openFilePicker() {
-	files, _ := filepath.Glob("*.fsm")
-	jsonFiles, _ := filepath.Glob("*.json")
-	ed.fileList = append(files, jsonFiles...)
-	if len(ed.fileList) == 0 {
-		ed.showMessage("No .fsm or .json files in current directory", MsgError)
-		return
+	// Start in last used directory
+	ed.currentDir = ed.config.LastDir
+	if ed.currentDir == "" {
+		ed.currentDir, _ = os.Getwd()
+	}
+	
+	ed.refreshFilePicker()
+	ed.filePickerFocus = 1 // Start with files focused
+	ed.mode = ModeFilePicker
+}
+
+func (ed *Editor) refreshFilePicker() {
+	// Get directories
+	ed.dirList = []string{".."}
+	entries, err := os.ReadDir(ed.currentDir)
+	if err == nil {
+		for _, e := range entries {
+			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				ed.dirList = append(ed.dirList, e.Name())
+			}
+		}
+	}
+	ed.dirSelected = 0
+	
+	// Get files
+	ed.fileList = nil
+	fsmPattern := filepath.Join(ed.currentDir, "*.fsm")
+	jsonPattern := filepath.Join(ed.currentDir, "*.json")
+	fsmFiles, _ := filepath.Glob(fsmPattern)
+	jsonFiles, _ := filepath.Glob(jsonPattern)
+	
+	// Store just filenames, not full paths
+	for _, f := range fsmFiles {
+		ed.fileList = append(ed.fileList, filepath.Base(f))
+	}
+	for _, f := range jsonFiles {
+		ed.fileList = append(ed.fileList, filepath.Base(f))
 	}
 	ed.fileSelected = 0
-	ed.mode = ModeFilePicker
 }
 
 func (ed *Editor) save() {
@@ -774,47 +1060,71 @@ func (ed *Editor) startMoveMode() {
 	if ed.selectedState < 0 || ed.selectedState >= len(ed.states) {
 		return
 	}
-	// Save original position for undo
+	// Use the same dragging mechanism as mouse, but keyboard-driven
+	ed.saveSnapshot()
+	ed.dragging = true
+	ed.dragStateIdx = ed.selectedState
+	ed.dragOffsetX = 0
+	ed.dragOffsetY = 0
+	// Store original position in move fields for Esc cancel
 	ed.moveStateIdx = ed.selectedState
 	ed.moveOrigX = ed.states[ed.selectedState].X
 	ed.moveOrigY = ed.states[ed.selectedState].Y
 	ed.mode = ModeMove
-	ed.showMessage("Move: arrows to move, Enter to confirm, Esc to cancel", MsgInfo)
+	ed.showMessage("Move: arrows, Enter=confirm, Esc=cancel", MsgInfo)
 }
 
 func (ed *Editor) handleMoveKey(ev *tcell.EventKey) bool {
-	if ed.moveStateIdx < 0 || ed.moveStateIdx >= len(ed.states) {
+	if ed.dragStateIdx < 0 || ed.dragStateIdx >= len(ed.states) {
+		ed.dragging = false
 		ed.mode = ModeCanvas
 		return false
 	}
 
 	switch ev.Key() {
 	case tcell.KeyEscape:
-		// Restore original position
-		ed.states[ed.moveStateIdx].X = ed.moveOrigX
-		ed.states[ed.moveStateIdx].Y = ed.moveOrigY
+		// Restore original position and undo the snapshot
+		ed.states[ed.dragStateIdx].X = ed.moveOrigX
+		ed.states[ed.dragStateIdx].Y = ed.moveOrigY
+		ed.dragging = false
 		ed.mode = ModeCanvas
+		// Pop the snapshot we saved
+		if len(ed.undoStack) > 0 {
+			ed.undoStack = ed.undoStack[:len(ed.undoStack)-1]
+		}
 		ed.showMessage("Move cancelled", MsgInfo)
 	case tcell.KeyEnter:
-		// Confirm move - save to undo stack
-		ed.saveSnapshot()
+		// Confirm move - snapshot already saved
+		ed.dragging = false
 		ed.modified = true
 		ed.mode = ModeCanvas
 		ed.showMessage("State moved", MsgSuccess)
 	case tcell.KeyUp:
-		if ed.states[ed.moveStateIdx].Y > 0 {
-			ed.states[ed.moveStateIdx].Y--
+		if ed.states[ed.dragStateIdx].Y > 0 {
+			ed.states[ed.dragStateIdx].Y--
 		}
 	case tcell.KeyDown:
-		ed.states[ed.moveStateIdx].Y++
+		ed.states[ed.dragStateIdx].Y++
 	case tcell.KeyLeft:
-		if ed.states[ed.moveStateIdx].X > 0 {
-			ed.states[ed.moveStateIdx].X--
+		if ed.states[ed.dragStateIdx].X > 0 {
+			ed.states[ed.dragStateIdx].X--
 		}
 	case tcell.KeyRight:
-		ed.states[ed.moveStateIdx].X++
+		ed.states[ed.dragStateIdx].X++
 	}
 	return false
+}
+
+// findStateAtCursor returns the index of the state under the cursor, or -1 if none.
+func (ed *Editor) findStateAtCursor() int {
+	for i, sp := range ed.states {
+		// State box starts at sp.X, sp.Y and has width of name + prefix/suffix chars
+		stateW := len(sp.Name) + 4 // "○[name]" or "→[name]*"
+		if ed.canvasCursorX >= sp.X && ed.canvasCursorX < sp.X+stateW && ed.canvasCursorY == sp.Y {
+			return i
+		}
+	}
+	return -1
 }
 
 func (ed *Editor) startAddTransition() {
@@ -1141,6 +1451,151 @@ func (ed *Editor) copyFSM() *fsm.FSM {
 		fsmCopy.StateOutputs[k] = v
 	}
 	return fsmCopy
+}
+
+func (ed *Editor) runAnalysis() {
+	warnings := ed.fsm.Analyse()
+
+	if len(warnings) == 0 {
+		ed.showMessage("✓ No issues found", MsgSuccess)
+		return
+	}
+
+	// Build a summary message
+	var issues []string
+	for _, w := range warnings {
+		switch w.Type {
+		case "unreachable":
+			issues = append(issues, fmt.Sprintf("%d unreachable", len(w.States)))
+		case "dead":
+			issues = append(issues, fmt.Sprintf("%d dead", len(w.States)))
+		case "nondeterministic":
+			issues = append(issues, fmt.Sprintf("%d nondet", len(w.States)))
+		case "incomplete":
+			issues = append(issues, fmt.Sprintf("%d incomplete", len(w.States)))
+		case "unused_input":
+			issues = append(issues, "unused inputs")
+		case "unused_output":
+			issues = append(issues, "unused outputs")
+		}
+	}
+
+	msg := fmt.Sprintf("✗ %d issue(s): %s", len(warnings), strings.Join(issues, ", "))
+	ed.showMessage(msg, MsgError)
+}
+
+func (ed *Editor) runValidate() {
+	err := ed.fsm.Validate()
+	if err == nil {
+		ed.showMessage("✓ FSM is valid", MsgSuccess)
+	} else {
+		ed.showMessage("✗ "+err.Error(), MsgError)
+	}
+}
+
+func (ed *Editor) renderView() {
+	// Generate title
+	title := ed.fsm.Name
+	if title == "" {
+		title = "FSM"
+	}
+
+	var tmpPath string
+	useNative := ed.config.Renderer == "native"
+	useSVG := ed.config.FileType == "svg"
+	
+	// Check for dot if graphviz is selected
+	if !useNative {
+		if _, err := exec.LookPath("dot"); err != nil {
+			ed.showMessage("Graphviz not found, using native renderer", MsgInfo)
+			useNative = true
+		}
+	}
+
+	if useNative {
+		if useSVG {
+			// Native SVG
+			tmpFile, err := os.CreateTemp("", "fsm-*.svg")
+			if err != nil {
+				ed.showMessage("Failed to create temp file", MsgError)
+				return
+			}
+			tmpPath = tmpFile.Name()
+			tmpFile.Close()
+
+			opts := fsmfile.DefaultSVGOptions()
+			opts.Title = title
+			svg := fsmfile.GenerateSVGNative(ed.fsm, opts)
+
+			if err := os.WriteFile(tmpPath, []byte(svg), 0644); err != nil {
+				ed.showMessage("Failed to write SVG", MsgError)
+				os.Remove(tmpPath)
+				return
+			}
+		} else {
+			// Native PNG
+			tmpFile, err := os.CreateTemp("", "fsm-*.png")
+			if err != nil {
+				ed.showMessage("Failed to create temp file", MsgError)
+				return
+			}
+			tmpPath = tmpFile.Name()
+			
+			opts := fsmfile.DefaultPNGOptions()
+			opts.Title = title
+			if err := fsmfile.RenderPNG(ed.fsm, tmpFile, opts); err != nil {
+				tmpFile.Close()
+				ed.showMessage("Failed to generate PNG: "+err.Error(), MsgError)
+				os.Remove(tmpPath)
+				return
+			}
+			tmpFile.Close()
+		}
+	} else {
+		// Graphviz
+		ext := ".png"
+		format := "png"
+		if useSVG {
+			ext = ".svg"
+			format = "svg"
+		}
+		
+		tmpFile, err := os.CreateTemp("", "fsm-*"+ext)
+		if err != nil {
+			ed.showMessage("Failed to create temp file", MsgError)
+			return
+		}
+		tmpPath = tmpFile.Name()
+		tmpFile.Close()
+
+		dot := fsmfile.GenerateDOT(ed.fsm, title)
+		cmd := exec.Command("dot", "-T"+format, "-o", tmpPath)
+		cmd.Stdin = strings.NewReader(dot)
+		if err := cmd.Run(); err != nil {
+			ed.showMessage("dot failed: "+err.Error(), MsgError)
+			os.Remove(tmpPath)
+			return
+		}
+	}
+
+	// Open with system viewer
+	var openCmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		openCmd = exec.Command("open", tmpPath)
+	case "windows":
+		openCmd = exec.Command("cmd", "/c", "start", "", tmpPath)
+	default: // linux, etc
+		openCmd = exec.Command("xdg-open", tmpPath)
+	}
+
+	if err := openCmd.Start(); err != nil {
+		ed.showMessage("Failed to open viewer: "+err.Error(), MsgError)
+		os.Remove(tmpPath)
+		return
+	}
+
+	ed.showMessage("Opened in viewer: "+tmpPath, MsgSuccess)
 }
 
 func (ed *Editor) showMessage(msg string, msgType MessageType) {

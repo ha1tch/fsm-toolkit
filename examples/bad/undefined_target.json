@@ -1,0 +1,13 @@
+{
+  "name": "Undefined Target State",
+  "type": "dfa",
+  "description": "Invalid: transition targets non-existent state 'phantom'",
+  "states": ["s0", "s1"],
+  "alphabet": ["a", "b"],
+  "initial": "s0",
+  "accepting": ["s1"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s0", "input": "b", "to": "phantom"}
+  ]
+}

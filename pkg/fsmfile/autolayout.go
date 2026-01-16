@@ -15,6 +15,7 @@ const (
 	LayoutCircular
 	LayoutHierarchical
 	LayoutForceDirected
+	LayoutSugiyama // Layered graph layout with crossing minimisation
 )
 
 // AutoLayout generates positions for FSM states.
@@ -29,6 +30,8 @@ func AutoLayout(f *fsm.FSM, algorithm LayoutAlgorithm, width, height int) map[st
 		positions = layoutHierarchical(f, width, height)
 	case LayoutForceDirected:
 		positions = layoutForceDirected(f, width, height)
+	case LayoutSugiyama:
+		positions = SugiyamaLayout(f, width, height)
 	default:
 		positions = layoutGrid(f, width, height)
 	}
@@ -51,6 +54,7 @@ func AutoLayout(f *fsm.FSM, algorithm LayoutAlgorithm, width, height int) map[st
 }
 
 // SmartLayout chooses the best algorithm based on FSM structure.
+// Prefers Sugiyama for most cases as it produces the cleanest layouts.
 func SmartLayout(f *fsm.FSM, width, height int) map[string][2]int {
 	n := len(f.States)
 	
@@ -59,30 +63,21 @@ func SmartLayout(f *fsm.FSM, width, height int) map[string][2]int {
 	}
 	
 	// Analyse structure
-	isLinear := isLinearChain(f)
 	hasCyclic := hasCycles(f)
 	density := float64(len(f.Transitions)) / float64(n*n)
 	
-	// Choose algorithm
-	if isLinear || n <= 4 {
-		// Linear chains and small FSMs: hierarchical works best
-		return layoutHierarchical(f, width, height)
+	// Sugiyama works best for DAG-like structures (most FSMs)
+	if !hasCyclic || n <= 20 {
+		return SugiyamaLayout(f, width, height)
 	}
-	if n <= 8 && !hasCyclic {
-		// Small acyclic graphs: hierarchical
-		return layoutHierarchical(f, width, height)
-	}
-	if n <= 15 {
-		// Medium FSMs: circular gives good visibility
-		return layoutCircular(f, width, height)
-	}
-	if density > 0.25 {
-		// Dense graphs: force directed spreads things out
+	
+	// For very dense cyclic graphs, force-directed may work better
+	if density > 0.3 {
 		return layoutForceDirected(f, width, height)
 	}
 	
-	// Large sparse graphs: hierarchical with layers
-	return layoutHierarchical(f, width, height)
+	// Default to Sugiyama
+	return SugiyamaLayout(f, width, height)
 }
 
 // layoutGrid arranges states in a simple grid pattern.

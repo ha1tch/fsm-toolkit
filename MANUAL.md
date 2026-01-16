@@ -3,12 +3,17 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Concepts](#concepts)
-3. [File Format Specification](#file-format-specification)
-4. [Go CLI Tool](#go-cli-tool)
-5. [Python Scripts](#python-scripts)
-6. [Go Packages](#go-packages)
-7. [Examples](#examples)
+2. [Correctness Model](#correctness-model)
+3. [Concepts](#concepts)
+4. [File Format Specification](#file-format-specification)
+5. [Go CLI Tools](#go-cli-tools)
+6. [Python Scripts](#python-scripts)
+7. [Go Packages](#go-packages)
+8. [Examples](#examples)
+
+**See also:**
+- [SPECIFICATION.md](SPECIFICATION.md) — Formal semantic guarantees
+- [COMPATIBILITY.md](COMPATIBILITY.md) — Version stability promises
 
 ---
 
@@ -26,18 +31,87 @@ The FSM Toolkit provides a compact binary format for representing finite state m
 ### Quick Start
 
 ```bash
-# Build the Go tool
-go build -o fsm ./cmd/fsm
+# Build the Go tools
+./build.sh
 
 # Convert JSON to .fsm format
-./fsm convert examples/test_moore.json -o traffic.fsm
+./bin/fsm convert examples/test_moore.json -o traffic.fsm
 
-# Visualise
-./fsm dot traffic.fsm | dot -Tpng -o traffic.png
+# Visualise (with Graphviz)
+./bin/fsm png traffic.fsm
+
+# Visualise (without Graphviz)
+./bin/fsm svg traffic.fsm --native
 
 # Run interactively
-./fsm run traffic.fsm
+./bin/fsm run traffic.fsm
+
+# Edit visually
+./bin/fsmedit traffic.fsm
 ```
+
+---
+
+## Correctness Model
+
+Understanding what "valid" and "clean" mean is essential for using the toolkit effectively.
+
+### Validation vs Analysis
+
+| Check Type | Purpose | Failure Means |
+|------------|---------|---------------|
+| **Validation** | Structural correctness | FSM cannot run |
+| **Analysis** | Design quality | FSM can run but may have issues |
+
+### What "Valid" Means
+
+An FSM is **valid** if it can be executed without runtime errors:
+
+- Initial state exists and is in the state list
+- All transition targets exist
+- All inputs are in the alphabet
+- Type-specific constraints are met (e.g., no epsilon in DFA)
+- Outputs are in output alphabet (if alphabet is defined)
+
+**Guarantee**: If `fsm validate` passes, `fsm run` will not crash.
+
+### What "Clean" Means
+
+An FSM is **clean** if it passes validation AND analysis with no warnings:
+
+- All states are reachable from initial
+- No dead-end states (non-accepting with no exits)
+- DFA is deterministic and complete
+- All alphabet symbols are used
+
+**Guarantee**: If `fsm analyse` shows no warnings, the FSM has no structural issues.
+
+### Enforcement Levels
+
+| Constraint | Enforced? | If Violated |
+|------------|-----------|-------------|
+| Initial state exists | Always | Error |
+| Transitions reference valid states | Always | Error |
+| Inputs in alphabet | Always | Error |
+| Outputs in output alphabet | If alphabet defined | Error |
+| DFA has no epsilon | Always | Error |
+| DFA is deterministic | Warning only | Runs as NFA |
+| DFA is complete | Warning only | Rejects on missing |
+| Moore has all outputs | Never | Missing = "" |
+| All states reachable | Warning only | Dead code |
+
+### Quick Reference
+
+| Question | Answer |
+|----------|--------|
+| Can a DFA have epsilon transitions? | No — validation error |
+| Can a DFA have multiple transitions on same input? | Yes — warning, runs as NFA |
+| Can a DFA be incomplete (missing transitions)? | Yes — warning, rejects on missing |
+| Must Moore machines have outputs for all states? | No — missing outputs return "" |
+| Is output alphabet enforced? | Only if defined |
+| Will my FSM load in future versions? | Yes — see COMPATIBILITY.md |
+
+For complete semantic definitions, see [SPECIFICATION.md](SPECIFICATION.md).
 
 ---
 
@@ -109,6 +183,24 @@ TYPE SSSS:IIII TTTT:OOOO
 | 20-23 | OOOO | 16 bits | Output/flags |
 
 Separators (space and colon) are for readability and ignored during parsing.
+
+### Version Compatibility
+
+The hex format uses record type codes for extensibility:
+
+**Current record types:** 0000-0003
+
+**Compatibility rules:**
+
+1. **Forward compatibility**: Readers should ignore unknown record types (≥0004). This allows older tools to read files with newer record types, skipping features they don't understand.
+
+2. **Backward compatibility**: New tools must support all existing record types (0000-0003).
+
+3. **Type reservation**: Record types 0000-00FF are reserved for core FSM semantics. Types 0100-FFFF are available for extensions.
+
+4. **Breaking changes**: If a future version changes the semantics of an existing record type, it must use a new type code instead.
+
+The labels.toml and layout.toml sections are optional metadata. Readers that don't support TOML should ignore everything after the hex records.
 
 ### Record Types
 
@@ -260,17 +352,17 @@ go build -o fsmedit ./cmd/fsmedit/
 
 #### convert
 
-Convert between JSON, hex, and .fsm formats.
+Convert between JSON, hex, and .fsm formats. Supports wildcards for batch conversion.
 
 ```bash
-fsm convert <input> [-o output] [--pretty] [--no-labels]
+fsm convert <input>... [-o output] [--pretty] [--no-labels]
 ```
 
 **Options:**
 
 | Option | Description |
 |--------|-------------|
-| `-o, --output` | Output file (default: change extension) |
+| `-o, --output` | Output file or extension (default: change extension) |
 | `--pretty` | Pretty-print JSON output |
 | `--no-labels` | Omit labels.toml from .fsm output |
 
@@ -288,7 +380,15 @@ fsm convert input.fsm -o output.json --pretty
 
 # JSON to raw hex
 fsm convert input.json -o output.hex
+
+# Batch convert all JSON files to .fsm
+fsm convert *.json -o .fsm
+
+# Batch convert with pretty JSON
+fsm convert examples/*.fsm -o .json --pretty
 ```
+
+When `-o` starts with a dot (e.g., `.fsm`), it is treated as an extension applied to each input file's basename.
 
 #### dot
 
@@ -350,14 +450,31 @@ Requires Graphviz `dot` to be installed.
 Generate SVG image directly (shorthand for `dot | dot -Tsvg`).
 
 ```bash
-fsm svg <input> [-o output] [-t title]
+fsm svg <input> [-o output] [-t title] [--native]
 ```
 
 Same options as `png`. SVG is useful for web embedding and scalable graphics.
 
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output file (default: input with .svg extension) |
+| `-t, --title` | Diagram title |
+| `--native` | Use built-in renderer (no Graphviz required) |
+
 ```bash
+# Using Graphviz (better layout)
 fsm svg beatles.fsm -o diagram.svg
+
+# Using native renderer (no dependencies)
+fsm svg beatles.fsm -o diagram.svg --native
 ```
+
+The native renderer uses the built-in layout algorithms and produces clean SVG output without requiring Graphviz. It's useful for:
+- Systems without Graphviz installed
+- CI/CD pipelines
+- Embedded/minimal environments
 
 #### info
 
@@ -619,6 +736,19 @@ The editor has three main areas:
 | FILE SELECT | Choose file to open |
 | SELECT TYPE | Choose FSM type |
 
+#### Main Menu
+
+| Item | Description |
+|------|-------------|
+| New FSM | Create a new empty FSM |
+| Open File | Open an existing .fsm or .json file |
+| Save | Save to current filename |
+| Save As | Save to a new filename |
+| Edit Canvas | Enter canvas editing mode |
+| Render (Graphviz) | Generate PNG and open in system viewer |
+| Set FSM Type | Change FSM type (DFA/NFA/Moore/Mealy) |
+| Quit | Exit the editor |
+
 #### Canvas Mode Keys
 
 | Key | Action |
@@ -634,6 +764,9 @@ The editor has three main areas:
 | A | Toggle accepting state |
 | M | Set Moore output (Moore machines) |
 | G | Grab/move selected state (enter move mode) |
+| L | Lint/analyse FSM for warnings |
+| V | Validate FSM structure (errors) |
+| R | Render with Graphviz and open viewer |
 | W | Toggle arc (wire) visibility |
 | Esc | Return to menu |
 
@@ -659,9 +792,12 @@ When in move mode (after pressing G on a selected state):
 #### Mouse Support
 
 - **Left click** on canvas to move cursor
-- **Left click** on states to select them
+- **Left click** on state to select it
+- **Left click + drag** on state to reposition it
 - **Left click** on menu items to activate
-- **Right click + drag** on a state to reposition it (arcs update in real-time)
+- **Right click + drag** on state to reposition (alternative method)
+
+Dragging works with both left and right mouse buttons, making it accessible on laptops with touchpads.
 
 #### Layout Persistence
 
@@ -979,12 +1115,111 @@ func FormatHex(records []Record, width int) string
 func FSMToRecords(f *fsm.FSM) ([]Record, map[int]string, map[int]string, map[int]string)
 func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error)
 
-// DOT
+// DOT (requires Graphviz)
 func GenerateDOT(f *fsm.FSM, title string) string
+
+// Native SVG (no external dependencies)
+func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string
+func DefaultSVGOptions() SVGOptions
 
 // Labels
 func GenerateLabels(f *fsm.FSM, states, inputs, outputs map[int]string) string
 func ParseLabels(text string) (*Labels, error)
+
+// Layout
+func SmartLayout(f *fsm.FSM, width, height int) map[string][2]int
+func AutoLayout(f *fsm.FSM, algorithm LayoutAlgorithm, width, height int) map[string][2]int
+```
+
+#### Native SVG Rendering
+
+The `GenerateSVGNative` function produces SVG output without requiring Graphviz:
+
+```go
+opts := fsmfile.DefaultSVGOptions()
+opts.Title = "My FSM"
+opts.Width = 800
+opts.Height = 600
+opts.StateShape = fsmfile.ShapeEllipse
+opts.NodeSpacing = 1.5
+svg := fsmfile.GenerateSVGNative(myFSM, opts)
+```
+
+**SVGOptions fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `Width` | 800 | Canvas width in pixels |
+| `Height` | 600 | Canvas height in pixels |
+| `Title` | "" | Diagram title |
+| `FontSize` | 14 | Base font size for state labels |
+| `LabelSize` | 12 | Font size for transition labels |
+| `TitleSize` | 18 | Font size for diagram title |
+| `StateRadius` | 30 | Base radius/height of state shapes |
+| `StateShape` | Ellipse | Shape of state nodes (see below) |
+| `Padding` | 50 | Padding around edges |
+| `NodeSpacing` | 1.5 | Multiplier for spacing between nodes |
+
+**State shapes:**
+
+| Shape | Constant | Description |
+|-------|----------|-------------|
+| Circle | `ShapeCircle` | Fixed-size circles |
+| Ellipse | `ShapeEllipse` | Ellipses sized to fit label (default) |
+| Rectangle | `ShapeRect` | Rectangles sized to fit label |
+| Rounded Rect | `ShapeRoundRect` | Rounded rectangles |
+| Diamond | `ShapeDiamond` | Diamond/rhombus shape |
+
+**CLI options for native SVG:**
+
+```bash
+fsm svg input.json --native [options]
+
+Options:
+  --font-size N    Base font size (default: 14)
+  --shape SHAPE    circle, ellipse, rect, roundrect, diamond
+  --spacing N      Node spacing multiplier (default: 1.5)
+  --width N        Canvas width (default: 800)
+  --height N       Canvas height (default: 600)
+```
+
+**Features:**
+- Automatic layout using `SmartLayout` (Sugiyama algorithm)
+- State colouring: green (initial), orange (accepting), blue (both)
+- Double outline for accepting states
+- Self-loops rendered above states
+- Curved arrows for long edges and back-edges
+- Curved arrows for bidirectional transitions
+- Mealy outputs shown as `input/output` on transitions
+- Moore outputs shown in italic below states
+
+#### Layout Algorithms
+
+The toolkit includes five layout algorithms:
+
+| Algorithm | Best for |
+|-----------|----------|
+| `LayoutSugiyama` | **Default.** Layered graphs, DAGs, most FSMs |
+| `LayoutHierarchical` | Simple linear chains |
+| `LayoutCircular` | Highly cyclic FSMs |
+| `LayoutForceDirected` | Dense graphs with many cross-edges |
+| `LayoutGrid` | Fallback, uniform distribution |
+
+**Sugiyama Layout** (the default) implements a layered graph algorithm inspired by Graphviz:
+
+1. **Layer assignment** — BFS from initial state assigns each node to a layer
+2. **Crossing minimisation** — barycenter heuristic reorders nodes within layers
+3. **Horizontal positioning** — median heuristic aligns connected nodes
+4. **Edge routing** — long edges and back-edges rendered as curves
+
+`SmartLayout` uses Sugiyama for most FSMs, falling back to force-directed for very dense cyclic graphs.
+
+```go
+// Use Sugiyama explicitly
+positions := fsmfile.AutoLayout(myFSM, fsmfile.LayoutSugiyama, 80, 40)
+
+// Or let SmartLayout choose
+positions := fsmfile.SmartLayout(myFSM, 80, 40)
 ```
 
 #### Record Type
@@ -1005,6 +1240,36 @@ func ParseRecord(s string) (Record, error)
 ---
 
 ## Examples
+
+The `examples/` directory contains a variety of FSM definitions:
+
+| File | Type | Description |
+|------|------|-------------|
+| `traffic_light.fsm` | Moore | Simple traffic light controller |
+| `turnstile.json` | Mealy | Classic locked/unlocked turnstile |
+| `vending_machine.json` | Mealy | Coin-operated vending machine |
+| `binary_divisible_by_3.json` | DFA | Accepts binary numbers divisible by 3 |
+| `tcp_connection.json` | DFA | Simplified TCP state machine |
+| `door_lock.json` | DFA | 4-digit code lock with auto-reset |
+| `password_strength.json` | Moore | Password strength validator |
+| `game_enemy_ai.json` | Moore | Game enemy behavior AI |
+| `http_parser.json` | DFA | HTTP request line parser |
+| `regex_ab_star.json` | NFA | Accepts strings matching `(ab)*` |
+
+The `examples/bad/` directory contains FSMs with intentional errors for testing validation and analysis:
+
+| File | Issue |
+|------|-------|
+| `missing_initial.json` | Initial state not in states list |
+| `undefined_target.json` | Transition targets non-existent state |
+| `dfa_with_epsilon.json` | DFA contains epsilon (null) transition |
+| `invalid_output.json` | Output symbol not in output alphabet |
+| `unreachable_states.json` | States not reachable from initial |
+| `dead_ends.json` | States with no outgoing transitions |
+| `nondeterministic_dfa.json` | DFA with multiple transitions on same input |
+| `incomplete_dfa.json` | DFA missing transitions for some inputs |
+| `unused_alphabet.json` | Input/output symbols never used |
+| `multiple_issues.json` | Combination of several issues |
 
 ### Traffic Light (Moore)
 

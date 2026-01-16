@@ -1,0 +1,13 @@
+{
+  "name": "Incomplete DFA",
+  "type": "dfa",
+  "description": "Analyse warning: DFA states missing transitions for some inputs",
+  "states": ["s0", "s1", "s2"],
+  "alphabet": ["a", "b", "c"],
+  "initial": "s0",
+  "accepting": ["s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s1", "input": "b", "to": "s2"}
+  ]
+}

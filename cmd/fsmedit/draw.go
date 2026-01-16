@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsm"
@@ -22,9 +23,10 @@ var (
 	styleSidebar    = tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	styleSidebarH   = tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
 	styleStatus     = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
-	styleMsgInfo    = tcell.StyleDefault.Foreground(tcell.ColorWhite)
-	styleMsgError   = tcell.StyleDefault.Foreground(tcell.ColorRed).Bold(true)
-	styleMsgSuccess = tcell.StyleDefault.Foreground(tcell.ColorGreen)
+	styleMsgInfo    = tcell.StyleDefault.Foreground(tcell.ColorSilver).Background(tcell.ColorNavy)
+	styleMsgError   = tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorNavy).Bold(true)
+	styleMsgSuccess = tcell.StyleDefault.Foreground(tcell.ColorSilver).Background(tcell.ColorNavy)
+	styleHelp       = tcell.StyleDefault.Foreground(tcell.ColorGray) // Help bar on default background
 	styleCursor     = tcell.StyleDefault.Background(tcell.ColorDarkGray)
 	styleInput      = tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite)
 	styleBorder     = tcell.StyleDefault.Foreground(tcell.ColorGray)
@@ -35,43 +37,51 @@ func (ed *Editor) draw() {
 	ed.screen.Clear()
 	w, h := ed.screen.Size()
 
+	// Always draw canvas as background if we have an FSM loaded
+	if ed.fsm != nil && len(ed.states) > 0 {
+		ed.drawCanvas(w, h)
+		ed.drawSidebar(w, h)
+	}
+
 	switch ed.mode {
 	case ModeMenu:
-		ed.drawMenu(w, h)
-	case ModeCanvas:
-		ed.drawCanvas(w, h)
-		ed.drawSidebar(w, h)
+		ed.drawMenuOverlay(w, h)
+	case ModeCanvas, ModeMove:
+		// Canvas already drawn above
 	case ModeInput:
-		ed.drawCanvas(w, h)
-		ed.drawSidebar(w, h)
 		ed.drawInputBox(w, h)
 	case ModeFilePicker:
 		ed.drawFilePicker(w, h)
 	case ModeSelectType:
 		ed.drawTypeSelector(w, h)
 	case ModeAddTransition:
-		ed.drawCanvas(w, h)
-		ed.drawSidebar(w, h)
 		ed.drawTransitionSelector(w, h)
 	case ModeSelectInput:
-		ed.drawCanvas(w, h)
-		ed.drawSidebar(w, h)
 		ed.drawInputSelector(w, h)
 	case ModeSelectOutput:
-		ed.drawCanvas(w, h)
-		ed.drawSidebar(w, h)
 		ed.drawOutputSelector(w, h)
 	}
 
 	ed.drawStatusBar(w, h)
 }
 
-func (ed *Editor) drawMenu(w, h int) {
-	// Title
-	title := "╔══════════════════════════════╗"
-	ed.drawString(10, 2, title, styleBorder)
-	ed.drawString(10, 3, "║       FSM Editor             ║", styleBorder)
-	ed.drawString(10, 4, "╚══════════════════════════════╝", styleBorder)
+func (ed *Editor) drawMenuOverlay(w, h int) {
+	// Menu dimensions - much wider for comfortable display
+	menuWidth := 40
+	menuHeight := len(ed.menuItems) + 4
+	
+	// Centre on screen
+	startX := (w - menuWidth) / 2
+	startY := (h - menuHeight) / 2
+	if startX < 0 {
+		startX = 0
+	}
+	if startY < 0 {
+		startY = 0
+	}
+
+	// Draw box
+	ed.drawTitledBox(startX, startY, menuWidth, menuHeight, "fsmedit")
 
 	// Menu items
 	for i, item := range ed.menuItems {
@@ -79,13 +89,51 @@ func (ed *Editor) drawMenu(w, h int) {
 		if i == ed.menuSelected {
 			style = styleMenuSel
 		}
-		line := fmt.Sprintf("  %-26s", item)
-		ed.drawString(10, 6+i, line, style)
+		x := startX + 1
+		y := startY + 2 + i
+		// Pad item to fill full width inside box (menuWidth - 2 for borders)
+		paddedItem := fmt.Sprintf(" %-*s", menuWidth-3, item)
+		ed.drawString(x, y, paddedItem, style)
+	}
+}
+
+// drawTitledBox draws a bordered box with optional title
+func (ed *Editor) drawTitledBox(x, y, w, h int, title string) {
+	// Top border
+	ed.screen.SetContent(x, y, '┌', nil, styleBorder)
+	for i := 1; i < w-1; i++ {
+		ed.screen.SetContent(x+i, y, '─', nil, styleBorder)
+	}
+	ed.screen.SetContent(x+w-1, y, '┐', nil, styleBorder)
+
+	// Title if provided
+	if title != "" {
+		titleX := x + (w-len(title)-2)/2
+		ed.screen.SetContent(titleX, y, ' ', nil, styleBorder)
+		ed.drawString(titleX+1, y, title, styleSidebarH)
+		ed.screen.SetContent(titleX+1+len(title), y, ' ', nil, styleBorder)
 	}
 
-	// Help
-	help := "↑/↓: Select  Enter: Confirm  Esc: Cancel"
-	ed.drawString(10, 6+len(ed.menuItems)+2, help, styleMsgInfo)
+	// Sides and fill
+	for row := 1; row < h-1; row++ {
+		ed.screen.SetContent(x, y+row, '│', nil, styleBorder)
+		for col := 1; col < w-1; col++ {
+			ed.screen.SetContent(x+col, y+row, ' ', nil, styleDefault)
+		}
+		ed.screen.SetContent(x+w-1, y+row, '│', nil, styleBorder)
+	}
+
+	// Bottom border
+	ed.screen.SetContent(x, y+h-1, '└', nil, styleBorder)
+	for i := 1; i < w-1; i++ {
+		ed.screen.SetContent(x+i, y+h-1, '─', nil, styleBorder)
+	}
+	ed.screen.SetContent(x+w-1, y+h-1, '┘', nil, styleBorder)
+}
+
+func (ed *Editor) drawMenu(w, h int) {
+	// Legacy - redirect to overlay
+	ed.drawMenuOverlay(w, h)
 }
 
 func (ed *Editor) drawCanvas(w, h int) {
@@ -127,8 +175,8 @@ func (ed *Editor) drawCanvas(w, h int) {
 		if i == ed.selectedState {
 			style = styleStateSel
 		}
-		// In move mode, highlight the state being moved
-		if ed.mode == ModeMove && i == ed.moveStateIdx {
+		// Highlight state being dragged (mouse or keyboard)
+		if ed.dragging && i == ed.dragStateIdx {
 			style = styleDragging
 		}
 
@@ -572,7 +620,11 @@ func (ed *Editor) drawStatusBar(w, h int) {
 	// File info
 	fileInfo := "[New]"
 	if ed.filename != "" {
-		fileInfo = ed.filename
+		if len(ed.filename) > 30 {
+			fileInfo = filepath.Base(ed.filename)
+		} else {
+			fileInfo = ed.filename
+		}
 	}
 	if ed.modified {
 		fileInfo += " *"
@@ -601,7 +653,7 @@ func (ed *Editor) drawStatusBar(w, h int) {
 		ed.screen.SetContent(x, y, ' ', nil, styleDefault)
 	}
 	help := ed.helpString()
-	ed.drawString(1, y, help, styleMsgInfo)
+	ed.drawString(1, y, help, styleHelp)
 }
 
 func (ed *Editor) drawInputBox(w, h int) {
@@ -619,28 +671,108 @@ func (ed *Editor) drawInputBox(w, h int) {
 }
 
 func (ed *Editor) drawFilePicker(w, h int) {
-	boxW := 40
-	boxH := len(ed.fileList) + 4
+	// Two-column file picker: directories on left, files on right
+	totalW := 80
+	if totalW > w-4 {
+		totalW = w - 4
+	}
+	dirW := totalW / 3
+	fileW := totalW - dirW - 1
+	
+	// Calculate height based on content
+	maxItems := len(ed.dirList)
+	if len(ed.fileList) > maxItems {
+		maxItems = len(ed.fileList)
+	}
+	boxH := maxItems + 6
 	if boxH > h-4 {
 		boxH = h - 4
 	}
-	boxX := (w - boxW) / 2
-	boxY := 3
-
-	ed.drawBox(boxX, boxY, boxW, boxH, styleDefault)
-	ed.drawString(boxX+2, boxY+1, "Select File:", styleSidebarH)
-
-	for i, f := range ed.fileList {
-		if i >= boxH-4 {
+	if boxH < 10 {
+		boxH = 10
+	}
+	
+	boxX := (w - totalW) / 2
+	boxY := 2
+	
+	// Draw main box
+	ed.drawBox(boxX, boxY, totalW, boxH, styleDefault)
+	
+	// Draw current directory path at top
+	pathDisplay := ed.currentDir
+	if len(pathDisplay) > totalW-4 {
+		pathDisplay = "..." + pathDisplay[len(pathDisplay)-(totalW-7):]
+	}
+	ed.drawString(boxX+2, boxY+1, pathDisplay, styleSidebarH)
+	
+	// Draw column headers
+	dirHeader := "Directories"
+	fileHeader := "Files"
+	if ed.filePickerFocus == 0 {
+		ed.drawString(boxX+2, boxY+3, dirHeader, styleMenuSel)
+	} else {
+		ed.drawString(boxX+2, boxY+3, dirHeader, styleSidebarH)
+	}
+	if ed.filePickerFocus == 1 {
+		ed.drawString(boxX+dirW+2, boxY+3, fileHeader, styleMenuSel)
+	} else {
+		ed.drawString(boxX+dirW+2, boxY+3, fileHeader, styleSidebarH)
+	}
+	
+	// Draw vertical separator
+	for y := boxY + 3; y < boxY+boxH-1; y++ {
+		ed.drawString(boxX+dirW, y, "│", styleDefault)
+	}
+	
+	// Draw directories
+	visibleItems := boxH - 6
+	for i, d := range ed.dirList {
+		if i >= visibleItems {
 			break
 		}
 		style := styleMenu
-		if i == ed.fileSelected {
+		if ed.filePickerFocus == 0 && i == ed.dirSelected {
 			style = styleMenuSel
 		}
-		line := fmt.Sprintf(" %-36s", truncate(f, 36))
-		ed.drawString(boxX+2, boxY+3+i, line, style)
+		// Use simple ASCII prefix for directories
+		var display string
+		if d == ".." {
+			display = "[^] .."
+		} else {
+			display = "[/] " + d
+		}
+		// Truncate to fit column width (leaving space for padding)
+		maxLen := dirW - 3
+		if len(display) > maxLen {
+			display = display[:maxLen-2] + ".."
+		}
+		line := fmt.Sprintf(" %-*s", maxLen, display)
+		ed.drawString(boxX+1, boxY+5+i, line, style)
 	}
+	
+	// Draw files
+	if len(ed.fileList) == 0 {
+		ed.drawString(boxX+dirW+2, boxY+5, "(no files)", styleDefault)
+	} else {
+		for i, f := range ed.fileList {
+			if i >= visibleItems {
+				break
+			}
+			style := styleMenu
+			if ed.filePickerFocus == 1 && i == ed.fileSelected {
+				style = styleMenuSel
+			}
+			line := fmt.Sprintf(" %-*s", fileW-3, truncate(f, fileW-3))
+			ed.drawString(boxX+dirW+1, boxY+5+i, line, style)
+		}
+	}
+	
+	// Draw help at bottom
+	help := "←/→ or Tab: switch | ↑/↓: navigate | Enter: select | Esc: cancel"
+	if len(help) > totalW-4 {
+		help = "Tab:switch ↑↓:nav Enter:sel Esc:quit"
+	}
+	ed.drawString(boxX+2, boxY+boxH-1, help, styleDefault)
 }
 
 func (ed *Editor) drawTypeSelector(w, h int) {
@@ -778,13 +910,15 @@ func (ed *Editor) drawString(x, y int, s string, style tcell.Style) {
 
 func (ed *Editor) modeString() string {
 	if ed.dragging {
-		return "DRAGGING"
+		return "MOVE"
 	}
 	switch ed.mode {
 	case ModeMenu:
 		return "MENU"
 	case ModeCanvas:
-		return "CANVAS"
+		return "" // No label for normal canvas mode
+	case ModeMove:
+		return "MOVE"
 	case ModeInput:
 		return "INPUT"
 	case ModeFilePicker:

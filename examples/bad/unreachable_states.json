@@ -1,0 +1,16 @@
+{
+  "name": "Unreachable States",
+  "type": "dfa",
+  "description": "Analyse warning: states 'orphan' and 'isolated' cannot be reached from initial",
+  "states": ["s0", "s1", "s2", "orphan", "isolated"],
+  "alphabet": ["a", "b"],
+  "initial": "s0",
+  "accepting": ["s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s1", "input": "b", "to": "s2"},
+    {"from": "s2", "input": "a", "to": "s0"},
+    {"from": "orphan", "input": "a", "to": "isolated"},
+    {"from": "isolated", "input": "b", "to": "orphan"}
+  ]
+}

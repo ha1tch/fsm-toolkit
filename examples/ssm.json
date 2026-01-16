@@ -1,0 +1,20 @@
+{
+  "name": "ssm",
+  "type": "dfa",
+  "description": "State machine similar to the Graphviz example",
+  "states": ["RateLimit", "aggStates", "parallelExec", "batchExec", "ErrorEnd", "errState.stop", "End"],
+  "alphabet": ["next", "error", "done", "batch", "parallel"],
+  "initial": "RateLimit",
+  "accepting": ["End"],
+  "transitions": [
+    {"from": "RateLimit", "to": "aggStates", "input": "next"},
+    {"from": "RateLimit", "to": "End", "input": "done"},
+    {"from": "aggStates", "to": "parallelExec", "input": "parallel"},
+    {"from": "aggStates", "to": "batchExec", "input": "batch"},
+    {"from": "parallelExec", "to": "ErrorEnd", "input": "error"},
+    {"from": "parallelExec", "to": "End", "input": "done"},
+    {"from": "batchExec", "to": "End", "input": "done"},
+    {"from": "ErrorEnd", "to": "errState.stop", "input": "next"},
+    {"from": "errState.stop", "to": "End", "input": "done"}
+  ]
+}

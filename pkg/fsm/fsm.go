@@ -172,6 +172,7 @@ func (f *FSM) Validate() error {
 			}
 		}
 		
+		// Check input against alphabet
 		if t.Input != nil {
 			found = false
 			for _, a := range f.Alphabet {
@@ -182,6 +183,41 @@ func (f *FSM) Validate() error {
 			}
 			if !found {
 				return fmt.Errorf("transition %d: input %q not in alphabet", i, *t.Input)
+			}
+		} else {
+			// Epsilon transition - only valid for NFA
+			if f.Type == TypeDFA {
+				return fmt.Errorf("transition %d: epsilon transitions not allowed in DFA", i)
+			}
+		}
+
+		// Check Mealy output against OutputAlphabet
+		if t.Output != nil && len(f.OutputAlphabet) > 0 {
+			found = false
+			for _, o := range f.OutputAlphabet {
+				if o == *t.Output {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("transition %d: output %q not in output alphabet", i, *t.Output)
+			}
+		}
+	}
+
+	// Check Moore state outputs against OutputAlphabet
+	if f.Type == TypeMoore && len(f.OutputAlphabet) > 0 {
+		for state, output := range f.StateOutputs {
+			found = false
+			for _, o := range f.OutputAlphabet {
+				if o == output {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("state %q: output %q not in output alphabet", state, output)
 			}
 		}
 	}
@@ -268,6 +304,7 @@ type ValidationWarning struct {
 	Type    string
 	Message string
 	States  []string // affected states, if applicable
+	Symbols []string // affected symbols, if applicable
 }
 
 // Analyse performs structural analysis and returns warnings.
@@ -326,6 +363,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 		warnings = append(warnings, ValidationWarning{
 			Type:    "unused_input",
 			Message: fmt.Sprintf("%d input(s) not used in any transition", len(unusedInputs)),
+			Symbols: unusedInputs,
 		})
 	}
 
@@ -336,6 +374,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 			warnings = append(warnings, ValidationWarning{
 				Type:    "unused_output",
 				Message: fmt.Sprintf("%d output(s) not used", len(unusedOutputs)),
+				Symbols: unusedOutputs,
 			})
 		}
 	}

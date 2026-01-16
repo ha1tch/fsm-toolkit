@@ -1,0 +1,25 @@
+{
+  "name": "Vending Machine",
+  "type": "mealy",
+  "description": "Simple vending machine accepting coins and dispensing items",
+  "states": ["idle", "5c", "10c", "15c", "20c", "25c"],
+  "alphabet": ["nickel", "dime", "quarter", "select"],
+  "output_alphabet": ["none", "return_5", "return_10", "dispense", "dispense_return_5"],
+  "initial": "idle",
+  "transitions": [
+    {"from": "idle", "input": "nickel", "to": "5c", "output": "none"},
+    {"from": "idle", "input": "dime", "to": "10c", "output": "none"},
+    {"from": "idle", "input": "quarter", "to": "25c", "output": "none"},
+    {"from": "5c", "input": "nickel", "to": "10c", "output": "none"},
+    {"from": "5c", "input": "dime", "to": "15c", "output": "none"},
+    {"from": "5c", "input": "quarter", "to": "25c", "output": "return_5"},
+    {"from": "10c", "input": "nickel", "to": "15c", "output": "none"},
+    {"from": "10c", "input": "dime", "to": "20c", "output": "none"},
+    {"from": "10c", "input": "quarter", "to": "25c", "output": "return_10"},
+    {"from": "15c", "input": "nickel", "to": "20c", "output": "none"},
+    {"from": "15c", "input": "dime", "to": "25c", "output": "none"},
+    {"from": "20c", "input": "nickel", "to": "25c", "output": "none"},
+    {"from": "25c", "input": "select", "to": "idle", "output": "dispense"},
+    {"from": "20c", "input": "select", "to": "idle", "output": "dispense_return_5"}
+  ]
+}

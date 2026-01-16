@@ -1,0 +1,13 @@
+{
+  "name": "Regex (ab)*",
+  "type": "nfa",
+  "description": "NFA accepting strings matching the regex (ab)* - zero or more ab pairs",
+  "states": ["q0", "q1"],
+  "alphabet": ["a", "b"],
+  "initial": "q0",
+  "accepting": ["q0"],
+  "transitions": [
+    {"from": "q0", "input": "a", "to": "q1"},
+    {"from": "q1", "input": "b", "to": "q0"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Missing Initial State",
+  "type": "dfa",
+  "description": "Invalid: initial state 'start' is not in states list",
+  "states": ["s0", "s1", "s2"],
+  "alphabet": ["a", "b"],
+  "initial": "start",
+  "accepting": ["s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s1", "input": "b", "to": "s2"}
+  ]
+}

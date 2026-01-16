@@ -1,0 +1,14 @@
+{
+  "name": "DFA with Epsilon",
+  "type": "dfa",
+  "description": "Invalid: DFA cannot have epsilon (null input) transitions",
+  "states": ["s0", "s1", "s2"],
+  "alphabet": ["a", "b"],
+  "initial": "s0",
+  "accepting": ["s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s1", "input": null, "to": "s2"},
+    {"from": "s2", "input": "b", "to": "s0"}
+  ]
+}

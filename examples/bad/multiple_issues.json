@@ -1,0 +1,15 @@
+{
+  "name": "Multiple Issues",
+  "type": "dfa",
+  "description": "Multiple analyse warnings: unreachable, dead, incomplete, nondeterministic",
+  "states": ["s0", "s1", "s2", "orphan", "trap"],
+  "alphabet": ["a", "b", "c"],
+  "initial": "s0",
+  "accepting": ["s2"],
+  "transitions": [
+    {"from": "s0", "input": "a", "to": "s1"},
+    {"from": "s0", "input": "a", "to": "s2"},
+    {"from": "s1", "input": "b", "to": "s2"},
+    {"from": "orphan", "input": "a", "to": "trap"}
+  ]
+}

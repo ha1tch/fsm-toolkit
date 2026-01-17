@@ -136,8 +136,25 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 	}
 
 	// Get layout positions
-	layoutWidth := opts.Width / 10
-	layoutHeight := opts.Height / 20
+	// Sugiyama produces hierarchical (typically tall) layouts
+	// Adjust layout dimensions based on canvas aspect ratio
+	canvasAspect := float64(opts.Width) / float64(opts.Height)
+	
+	var layoutWidth, layoutHeight int
+	if canvasAspect > 1.3 {
+		// Wide canvas: give layout more width to spread horizontally
+		layoutWidth = opts.Width / 8
+		layoutHeight = opts.Height / 15
+	} else if canvasAspect < 0.7 {
+		// Tall canvas: standard vertical layout
+		layoutWidth = opts.Width / 12
+		layoutHeight = opts.Height / 18
+	} else {
+		// Square-ish canvas
+		layoutWidth = opts.Width / 10
+		layoutHeight = opts.Height / 18
+	}
+	
 	positions := SmartLayout(f, layoutWidth, layoutHeight)
 
 	// Convert to pixel coordinates (same logic as SVG)
@@ -228,15 +245,18 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 	scaleY := availableHeight / contentHeight
 	fitScale := math.Min(scaleX, scaleY)
 
-	if fitScale > 1.5 {
-		fitScale = 1.5
+	// Allow more generous scaling for small graphs
+	if fitScale > 2.0 {
+		fitScale = 2.0
 	}
-	if fitScale < 0.3 {
-		fitScale = 0.3
+	if fitScale < 0.2 {
+		fitScale = 0.2
 	}
 
 	scaledWidth := contentWidth * fitScale
 	scaledHeight := contentHeight * fitScale
+	
+	// Perfect centering: compute offset to place scaled content in center of available area
 	offsetX := float64(opts.Padding) + (availableWidth-scaledWidth)/2 - minX*fitScale
 	offsetY := float64(opts.Padding) + titleSpace + (availableHeight-scaledHeight)/2 - minY*fitScale
 
@@ -300,6 +320,45 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 		}
 	}
 
+	// Re-center after overlap resolution
+	// Recalculate actual bounds
+	var finalMinX, finalMaxX, finalMinY, finalMaxY float64
+	firstFinal := true
+	for name, pos := range pngPos {
+		dims := ellipseDims[name]
+		nodeMinX := pos[0] - dims[0]
+		nodeMaxX := pos[0] + dims[0]
+		nodeMinY := pos[1] - dims[1]
+		nodeMaxY := pos[1] + dims[1]
+		
+		if firstFinal {
+			finalMinX, finalMaxX = nodeMinX, nodeMaxX
+			finalMinY, finalMaxY = nodeMinY, nodeMaxY
+			firstFinal = false
+		} else {
+			if nodeMinX < finalMinX { finalMinX = nodeMinX }
+			if nodeMaxX > finalMaxX { finalMaxX = nodeMaxX }
+			if nodeMinY < finalMinY { finalMinY = nodeMinY }
+			if nodeMaxY > finalMaxY { finalMaxY = nodeMaxY }
+		}
+	}
+	
+	// Target center of available area
+	targetCenterX := float64(opts.Padding) + availableWidth/2
+	targetCenterY := float64(opts.Padding) + titleSpace + availableHeight/2
+	
+	// Current center of content
+	currentCenterX := (finalMinX + finalMaxX) / 2
+	currentCenterY := (finalMinY + finalMaxY) / 2
+	
+	// Shift all positions to perfectly center
+	shiftX := targetCenterX - currentCenterX
+	shiftY := targetCenterY - currentCenterY
+	
+	for name := range pngPos {
+		pngPos[name] = [2]float64{pngPos[name][0] + shiftX, pngPos[name][1] + shiftY}
+	}
+
 	// Calculate graph centre for edge routing
 	var sumX, sumY float64
 	for _, pos := range pngPos {
@@ -336,15 +395,31 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 	}
 
 	// Draw transitions
-	// First pass: draw non-self-loop transitions and collect label positions
+	// First, build state obstacles for LabelPlacer
+	var stateRects []Rect
+	var stateEllipses []Ellipse // For obstacle-aware routing
+	for name, pos := range pngPos {
+		dims := ellipseDims[name]
+		stateRects = append(stateRects, Rect{
+			X: pos[0], Y: pos[1],
+			W: dims[0] * 2, H: dims[1] * 2,
+		})
+		stateEllipses = append(stateEllipses, Ellipse{
+			CX: pos[0], CY: pos[1],
+			RX: dims[0] + 5*ctx.scale, // Add padding for routing clearance
+			RY: dims[1] + 5*ctx.scale,
+		})
+	}
+	labelPlacer := NewLabelPlacer(stateRects)
+
+	// First pass: draw non-self-loop transitions
 	var labelBoxes []labelBox
-	
 	drawnPairs := make(map[transKey]bool)
 	var selfLoops []struct {
 		x, y, rx, ry float64
 		label        string
 	}
-	
+
 	for key, labels := range transLabels {
 		if drawnPairs[key] {
 			continue
@@ -366,37 +441,50 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 			reverseKey := transKey{key.to, key.from}
 			reverseLabels, hasBidi := transLabels[reverseKey]
 
+			// Check if this is a back-edge that should use routed path
+			dy := toPos[1] - fromPos[1]
+			avgR := (fromDims[0] + fromDims[1] + toDims[0] + toDims[1]) / 4
+			isBackEdge := dy < -avgR*2
+
 			if hasBidi && !drawnPairs[reverseKey] {
-				lx, ly := drawBidiTransitionPNG(ctx, fromPos[0], fromPos[1], toPos[0], toPos[1],
-					fromDims, toDims, label, strings.Join(reverseLabels, ", "))
-				// Add both label positions
+				lx, ly := drawBidiTransitionPNGWithPlacer(ctx, fromPos[0], fromPos[1], toPos[0], toPos[1],
+					fromDims, toDims, label, strings.Join(reverseLabels, ", "), labelPlacer)
 				labelBoxes = append(labelBoxes, labelBox{lx, ly, 50 * ctx.scale, 15 * ctx.scale})
 				drawnPairs[reverseKey] = true
 			} else if !hasBidi {
-				lx, ly := drawTransitionPNG(ctx, fromPos[0], fromPos[1], toPos[0], toPos[1],
-					fromDims, toDims, label, graphCentreX, graphCentreY)
-				labelBoxes = append(labelBoxes, labelBox{lx, ly, 50 * ctx.scale, 15 * ctx.scale})
+				if isBackEdge {
+					// Use obstacle-aware routing for back-edges
+					// Build list of obstacles excluding source and target
+					var routingObstacles []Ellipse
+					for name, pos := range pngPos {
+						if name == key.from || name == key.to {
+							continue
+						}
+						dims := ellipseDims[name]
+						routingObstacles = append(routingObstacles, Ellipse{
+							CX: pos[0], CY: pos[1],
+							RX: dims[0] + 8*ctx.scale,
+							RY: dims[1] + 8*ctx.scale,
+						})
+					}
+					lx, ly := drawTransitionWithRouting(ctx, fromPos[0], fromPos[1], toPos[0], toPos[1],
+						fromDims, toDims, label, routingObstacles, labelPlacer)
+					labelBoxes = append(labelBoxes, labelBox{lx, ly, 50 * ctx.scale, 15 * ctx.scale})
+				} else {
+					lx, ly := drawTransitionPNGWithPlacer(ctx, fromPos[0], fromPos[1], toPos[0], toPos[1],
+						fromDims, toDims, label, graphCentreX, graphCentreY, labelPlacer)
+					labelBoxes = append(labelBoxes, labelBox{lx, ly, 50 * ctx.scale, 15 * ctx.scale})
+				}
 			}
 		}
 		drawnPairs[key] = true
 	}
-	
-	// Also add state ellipses as occupied regions
-	for _, pos := range pngPos {
-		for name := range pngPos {
-			dims := ellipseDims[name]
-			labelBoxes = append(labelBoxes, labelBox{pos[0], pos[1], dims[0] * 2, dims[1] * 2})
-			break
-		}
-	}
-	for name, pos := range pngPos {
-		dims := ellipseDims[name]
-		labelBoxes = append(labelBoxes, labelBox{pos[0], pos[1], dims[0] * 2, dims[1] * 2})
-	}
-	
+
 	// Second pass: draw self-loops with smart label placement
+	canvasW := float64(opts.Width)
+	canvasH := float64(opts.Height)
 	for _, loop := range selfLoops {
-		drawSelfLoopPNG(ctx, loop.x, loop.y, loop.rx, loop.ry, loop.label, labelBoxes, graphCentreY)
+		drawSelfLoopPNG(ctx, loop.x, loop.y, loop.rx, loop.ry, loop.label, labelBoxes, graphCentreY, canvasW, canvasH)
 	}
 
 	// Draw initial arrow
@@ -583,6 +671,29 @@ func drawQuadBezier(ctx *renderContext, x1, y1, cx, cy, x2, y2 float64, c color.
 	}
 }
 
+// drawCubicBezier draws a cubic Bézier curve.
+func drawCubicBezier(ctx *renderContext, p0, p1, p2, p3 Point, c color.Color) {
+	steps := 100.0
+	var prevX, prevY float64
+
+	for i := 0.0; i <= steps; i++ {
+		t := i / steps
+		t2 := t * t
+		t3 := t2 * t
+		mt := 1 - t
+		mt2 := mt * mt
+		mt3 := mt2 * mt
+
+		x := mt3*p0.X + 3*mt2*t*p1.X + 3*mt*t2*p2.X + t3*p3.X
+		y := mt3*p0.Y + 3*mt2*t*p1.Y + 3*mt*t2*p2.Y + t3*p3.Y
+
+		if i > 0 {
+			drawLine(ctx, prevX, prevY, x, y, c)
+		}
+		prevX, prevY = x, y
+	}
+}
+
 // drawQuadBezierArrow draws a quadratic Bezier curve with arrowhead.
 func drawQuadBezierArrow(ctx *renderContext, x1, y1, cx, cy, x2, y2 float64, c color.Color) {
 	drawQuadBezier(ctx, x1, y1, cx, cy, x2, y2, c)
@@ -731,6 +842,364 @@ func drawTransitionPNG(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toD
 	return labelX, labelY
 }
 
+// drawTransitionPNGWithPlacer draws a transition with collision-aware label placement.
+func drawTransitionPNGWithPlacer(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toDims [2]float64, label string, graphCentreX, graphCentreY float64, placer *LabelPlacer) (float64, float64) {
+	dx := x2 - x1
+	dy := y2 - y1
+	dist := math.Sqrt(dx*dx + dy*dy)
+	if dist < 1 {
+		return x1, y1
+	}
+
+	nx := dx / dist
+	ny := dy / dist
+
+	// Calculate start point on source ellipse edge
+	sx, sy := ellipseEdgePoint(x1, y1, fromDims[0], fromDims[1], nx, ny)
+
+	// Calculate end point on target ellipse edge (with small gap for arrow)
+	ex, ey := ellipseEdgePoint(x2, y2, toDims[0]+2*ctx.scale, toDims[1]+2*ctx.scale, -nx, -ny)
+
+	// Use average radius for distance comparisons
+	avgR := (fromDims[0] + fromDims[1] + toDims[0] + toDims[1]) / 4
+	isLongEdge := dist > avgR*4
+	isBackEdge := dy < -avgR*2
+
+	labelW := float64(len(label)) * ctx.fontSize * 0.6
+	labelH := ctx.fontSize
+	gap := 8.0 * ctx.scale
+
+	var labelX, labelY float64
+
+	if isLongEdge || isBackEdge {
+		midX := (x1 + x2) / 2
+		midY := (y1 + y2) / 2
+
+		toCentreX := midX - graphCentreX
+		toCentreY := midY - graphCentreY
+
+		perpX := -ny
+		perpY := nx
+
+		dotProduct := perpX*toCentreX + perpY*toCentreY
+		if dotProduct < 0 {
+			perpX = ny
+			perpY = -nx
+		}
+
+		curveAmount := dist * 0.2
+		if isBackEdge {
+			curveAmount = dist * 0.35
+		}
+
+		cx := midX + perpX*curveAmount
+		cy := midY + perpY*curveAmount
+
+		drawQuadBezierArrow(ctx, sx, sy, cx, cy, ex, ey, colorBlack)
+
+		// Place label on the curve at t=0.5 using collision avoidance
+		curveMidX := 0.25*sx + 0.5*cx + 0.25*ex
+		curveMidY := 0.25*sy + 0.5*cy + 0.25*ey
+
+		// Use LabelPlacer to find best position
+		labelPos := placer.PlaceLabelOnCurve(
+			Point{curveMidX, curveMidY},
+			Point{perpX, perpY},
+			labelW, labelH, gap,
+		)
+		labelX, labelY = labelPos.X, labelPos.Y
+		drawTextCentered(ctx, int(labelX), int(labelY), label, colorBlack)
+	} else {
+		drawArrowLine(ctx, sx, sy, ex, ey, colorBlack)
+
+		// Use LabelPlacer for label position
+		labelPos := placer.PlaceLabelOnEdge(
+			Point{sx, sy}, Point{ex, ey},
+			labelW, labelH, gap,
+		)
+		labelX, labelY = labelPos.X, labelPos.Y
+		drawTextCentered(ctx, int(labelX), int(labelY), label, colorBlack)
+	}
+	return labelX, labelY
+}
+
+// drawTransitionWithRouting draws a transition using obstacle-aware routing.
+// This is used when we have state ellipses to route around.
+func drawTransitionWithRouting(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toDims [2]float64, label string, obstacles []Ellipse, placer *LabelPlacer) (float64, float64) {
+	dx := x2 - x1
+	dy := y2 - y1
+	dist := math.Sqrt(dx*dx + dy*dy)
+	if dist < 1 {
+		return x1, y1
+	}
+
+	nx := dx / dist
+	ny := dy / dist
+
+	// Calculate start point on source ellipse edge
+	sx, sy := ellipseEdgePoint(x1, y1, fromDims[0], fromDims[1], nx, ny)
+
+	// Calculate end point on target ellipse edge (with small gap for arrow)
+	ex, ey := ellipseEdgePoint(x2, y2, toDims[0]+2*ctx.scale, toDims[1]+2*ctx.scale, -nx, -ny)
+
+	labelW := float64(len(label)) * ctx.fontSize * 0.6
+	labelH := ctx.fontSize
+	gap := 8.0 * ctx.scale
+
+	// Try to route around obstacles
+	start := Point{sx, sy}
+	end := Point{ex, ey}
+	path := RouteAroundObstacles(start, end, obstacles)
+
+	var labelX, labelY float64
+
+	if len(path) <= 2 {
+		// Direct path - draw simple arrow
+		drawArrowLine(ctx, sx, sy, ex, ey, colorBlack)
+		labelPos := placer.PlaceLabelOnEdge(start, end, labelW, labelH, gap)
+		labelX, labelY = labelPos.X, labelPos.Y
+	} else {
+		// Path with waypoints - fit spline through them
+		spline := FitSplineThroughBoxes(start, end, nil) // No boxes, just waypoints
+		if len(path) > 2 {
+			// Use the path waypoints directly
+			spline = path
+		}
+
+		// Draw the path as connected segments or as a smooth curve
+		drawPathWithArrow(ctx, spline, colorBlack)
+
+		// Place label at midpoint of path
+		midIdx := len(path) / 2
+		labelAnchor := path[midIdx]
+
+		// Calculate perpendicular direction at midpoint
+		var perpX, perpY float64
+		if midIdx > 0 && midIdx < len(path)-1 {
+			dx := path[midIdx+1].X - path[midIdx-1].X
+			dy := path[midIdx+1].Y - path[midIdx-1].Y
+			d := math.Sqrt(dx*dx + dy*dy)
+			if d > 0 {
+				perpX = -dy / d
+				perpY = dx / d
+			}
+		}
+
+		labelPos := placer.PlaceLabelOnCurve(labelAnchor, Point{perpX, perpY}, labelW, labelH, gap)
+		labelX, labelY = labelPos.X, labelPos.Y
+	}
+
+	drawTextCentered(ctx, int(labelX), int(labelY), label, colorBlack)
+	return labelX, labelY
+}
+
+// drawPathWithArrow draws a path as a smooth curve with an arrowhead at the end.
+// Converts waypoints to a smooth cubic Bézier spline using Catmull-Rom interpolation.
+func drawPathWithArrow(ctx *renderContext, path []Point, c color.Color) {
+	if len(path) < 2 {
+		return
+	}
+
+	if len(path) == 2 {
+		// Just two points - draw a straight line with arrow
+		drawArrowLine(ctx, path[0].X, path[0].Y, path[1].X, path[1].Y, c)
+		return
+	}
+
+	// Convert waypoints to smooth cubic Bézier using Catmull-Rom
+	// For each segment, we need 4 control points
+	smoothPath := waypointsToSmoothCurve(path)
+	
+	// Draw the smooth curve
+	if len(smoothPath) >= 4 {
+		// Draw cubic Bézier segments
+		numSegments := (len(smoothPath) - 1) / 3
+		for seg := 0; seg < numSegments; seg++ {
+			i := seg * 3
+			if i+3 < len(smoothPath) {
+				drawCubicBezier(ctx, smoothPath[i], smoothPath[i+1], smoothPath[i+2], smoothPath[i+3], c)
+			}
+		}
+	} else {
+		// Fallback: draw as quadratic through midpoint
+		mid := Point{
+			X: (path[0].X + path[len(path)-1].X) / 2,
+			Y: (path[0].Y + path[len(path)-1].Y) / 2,
+		}
+		// Offset the control point based on the path's middle waypoint
+		if len(path) > 2 {
+			midWaypoint := path[len(path)/2]
+			mid.X = midWaypoint.X
+			mid.Y = midWaypoint.Y
+		}
+		drawQuadBezier(ctx, path[0].X, path[0].Y, mid.X, mid.Y, path[len(path)-1].X, path[len(path)-1].Y, c)
+	}
+
+	// Draw arrowhead using tangent at end of curve
+	last := path[len(path)-1]
+	var tx, ty float64
+	
+	if len(smoothPath) >= 4 {
+		// Get tangent from last cubic segment
+		lastSeg := ((len(smoothPath) - 1) / 3) - 1
+		if lastSeg < 0 {
+			lastSeg = 0
+		}
+		i := lastSeg * 3
+		if i+3 < len(smoothPath) {
+			// Tangent at t=1 of cubic Bézier: 3*(P3 - P2)
+			tx = smoothPath[i+3].X - smoothPath[i+2].X
+			ty = smoothPath[i+3].Y - smoothPath[i+2].Y
+		} else {
+			tx = last.X - path[len(path)-2].X
+			ty = last.Y - path[len(path)-2].Y
+		}
+	} else {
+		// Use direction from second-to-last to last point
+		tx = last.X - path[len(path)-2].X
+		ty = last.Y - path[len(path)-2].Y
+	}
+
+	dist := math.Sqrt(tx*tx + ty*ty)
+	if dist < 1 {
+		return
+	}
+
+	nx := tx / dist
+	ny := ty / dist
+
+	arrowLen := 8.0 * ctx.scale
+	arrowWidth := 4.0 * ctx.scale
+
+	ax1 := last.X - nx*arrowLen + ny*arrowWidth
+	ay1 := last.Y - ny*arrowLen - nx*arrowWidth
+	ax2 := last.X - nx*arrowLen - ny*arrowWidth
+	ay2 := last.Y - ny*arrowLen + nx*arrowWidth
+
+	drawLine(ctx, last.X, last.Y, ax1, ay1, c)
+	drawLine(ctx, last.X, last.Y, ax2, ay2, c)
+
+	// Fill arrowhead
+	for t := 0.0; t <= 1.0; t += 0.05 {
+		mx := ax1 + (ax2-ax1)*t
+		my := ay1 + (ay2-ay1)*t
+		drawLine(ctx, last.X, last.Y, mx, my, c)
+	}
+}
+
+// waypointsToSmoothCurve converts a sequence of waypoints to cubic Bézier control points
+// using Catmull-Rom spline interpolation for smooth curves through all points.
+func waypointsToSmoothCurve(waypoints []Point) []Point {
+	if len(waypoints) < 2 {
+		return waypoints
+	}
+	if len(waypoints) == 2 {
+		// Two points: create a simple cubic with control points on the line
+		p0, p1 := waypoints[0], waypoints[1]
+		ctrl1 := Point{p0.X + (p1.X-p0.X)/3, p0.Y + (p1.Y-p0.Y)/3}
+		ctrl2 := Point{p0.X + 2*(p1.X-p0.X)/3, p0.Y + 2*(p1.Y-p0.Y)/3}
+		return []Point{p0, ctrl1, ctrl2, p1}
+	}
+
+	// Build extended waypoints with phantom points at start and end
+	extended := make([]Point, len(waypoints)+2)
+	// Phantom start: reflect first segment
+	extended[0] = Point{
+		X: 2*waypoints[0].X - waypoints[1].X,
+		Y: 2*waypoints[0].Y - waypoints[1].Y,
+	}
+	copy(extended[1:], waypoints)
+	// Phantom end: reflect last segment
+	n := len(waypoints)
+	extended[len(extended)-1] = Point{
+		X: 2*waypoints[n-1].X - waypoints[n-2].X,
+		Y: 2*waypoints[n-1].Y - waypoints[n-2].Y,
+	}
+
+	// Generate cubic Bézier control points using Catmull-Rom
+	// For n waypoints, we get n-1 cubic segments = (n-1)*3 + 1 = 3n-2 control points
+	result := make([]Point, 0, (len(waypoints)-1)*3+1)
+	result = append(result, waypoints[0])
+
+	// Tension parameter (0.5 = Catmull-Rom)
+	tension := 0.5
+
+	for i := 0; i < len(waypoints)-1; i++ {
+		p0 := extended[i]
+		p1 := extended[i+1] // = waypoints[i]
+		p2 := extended[i+2] // = waypoints[i+1]
+		p3 := extended[i+3]
+
+		// Control point 1: p1 + (p2 - p0) * tension / 3
+		ctrl1 := Point{
+			X: p1.X + (p2.X-p0.X)*tension/3,
+			Y: p1.Y + (p2.Y-p0.Y)*tension/3,
+		}
+
+		// Control point 2: p2 - (p3 - p1) * tension / 3
+		ctrl2 := Point{
+			X: p2.X - (p3.X-p1.X)*tension/3,
+			Y: p2.Y - (p3.Y-p1.Y)*tension/3,
+		}
+
+		result = append(result, ctrl1, ctrl2, p2)
+	}
+
+	return result
+}
+
+// drawSplineWithArrow draws a spline (cubic Bézier sequence) with arrowhead.
+func drawSplineWithArrow(ctx *renderContext, spline []Point, c color.Color) {
+	if len(spline) < 2 {
+		return
+	}
+
+	if len(spline) < 4 {
+		// Not enough for cubic, draw as path
+		drawPathWithArrow(ctx, spline, c)
+		return
+	}
+
+	// Draw cubic Bézier segments
+	numSegments := (len(spline) - 1) / 3
+	for seg := 0; seg < numSegments; seg++ {
+		i := seg * 3
+		if i+3 >= len(spline) {
+			break
+		}
+		drawCubicBezier(ctx, spline[i], spline[i+1], spline[i+2], spline[i+3], c)
+	}
+
+	// Draw arrowhead using tangent at end
+	tangent := EvaluateSplineTangent(spline, 1.0)
+	endPt := EvaluateSpline(spline, 1.0)
+
+	dist := math.Sqrt(tangent.X*tangent.X + tangent.Y*tangent.Y)
+	if dist < 0.01 {
+		return
+	}
+
+	nx := tangent.X / dist
+	ny := tangent.Y / dist
+
+	arrowLen := 8.0 * ctx.scale
+	arrowWidth := 4.0 * ctx.scale
+
+	ax1 := endPt.X - nx*arrowLen + ny*arrowWidth
+	ay1 := endPt.Y - ny*arrowLen - nx*arrowWidth
+	ax2 := endPt.X - nx*arrowLen - ny*arrowWidth
+	ay2 := endPt.Y - ny*arrowLen + nx*arrowWidth
+
+	drawLine(ctx, endPt.X, endPt.Y, ax1, ay1, c)
+	drawLine(ctx, endPt.X, endPt.Y, ax2, ay2, c)
+
+	for t := 0.0; t <= 1.0; t += 0.05 {
+		mx := ax1 + (ax2-ax1)*t
+		my := ay1 + (ay2-ay1)*t
+		drawLine(ctx, endPt.X, endPt.Y, mx, my, c)
+	}
+}
+
 // drawBidiTransitionPNG draws bidirectional transition arrows and returns one label position.
 func drawBidiTransitionPNG(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toDims [2]float64, label1, label2 string) (float64, float64) {
 	dx := x2 - x1
@@ -786,6 +1255,76 @@ func drawBidiTransitionPNG(ctx *renderContext, x1, y1, x2, y2 float64, fromDims,
 	return lx1, ly1
 }
 
+// drawBidiTransitionPNGWithPlacer draws bidirectional arrows with collision-aware labels.
+func drawBidiTransitionPNGWithPlacer(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toDims [2]float64, label1, label2 string, placer *LabelPlacer) (float64, float64) {
+	dx := x2 - x1
+	dy := y2 - y1
+	dist := math.Sqrt(dx*dx + dy*dy)
+	if dist < 1 {
+		return x1, y1
+	}
+
+	nx := dx / dist
+	ny := dy / dist
+
+	// Perpendicular offset for the two curves
+	perpX := -ny
+	perpY := nx
+
+	offset := dist * 0.15
+	perpOffset := 5 * ctx.scale
+
+	// First arrow (from -> to), curves one way
+	sx1, sy1 := ellipseEdgePoint(x1, y1, fromDims[0], fromDims[1], nx, ny)
+	sx1 += perpX * perpOffset
+	sy1 += perpY * perpOffset
+
+	ex1, ey1 := ellipseEdgePoint(x2, y2, toDims[0]+2*ctx.scale, toDims[1]+2*ctx.scale, -nx, -ny)
+	ex1 += perpX * perpOffset
+	ey1 += perpY * perpOffset
+
+	cx1 := (x1+x2)/2 + perpX*offset
+	cy1 := (y1+y2)/2 + perpY*offset
+
+	drawQuadBezierArrow(ctx, sx1, sy1, cx1, cy1, ex1, ey1, colorBlack)
+
+	// Place first label with collision avoidance
+	labelW1 := float64(len(label1)) * ctx.fontSize * 0.6
+	labelH := ctx.fontSize
+	gap := 8.0 * ctx.scale
+	labelPos1 := placer.PlaceLabelOnCurve(
+		Point{cx1, cy1},
+		Point{perpX, perpY},
+		labelW1, labelH, gap,
+	)
+	drawTextCentered(ctx, int(labelPos1.X), int(labelPos1.Y), label1, colorBlack)
+
+	// Second arrow (to -> from), curves the other way
+	sx2, sy2 := ellipseEdgePoint(x2, y2, toDims[0], toDims[1], -nx, -ny)
+	sx2 -= perpX * perpOffset
+	sy2 -= perpY * perpOffset
+
+	ex2, ey2 := ellipseEdgePoint(x1, y1, fromDims[0]+2*ctx.scale, fromDims[1]+2*ctx.scale, nx, ny)
+	ex2 -= perpX * perpOffset
+	ey2 -= perpY * perpOffset
+
+	cx2 := (x1+x2)/2 - perpX*offset
+	cy2 := (y1+y2)/2 - perpY*offset
+
+	drawQuadBezierArrow(ctx, sx2, sy2, cx2, cy2, ex2, ey2, colorBlack)
+
+	// Place second label with collision avoidance
+	labelW2 := float64(len(label2)) * ctx.fontSize * 0.6
+	labelPos2 := placer.PlaceLabelOnCurve(
+		Point{cx2, cy2},
+		Point{-perpX, -perpY},
+		labelW2, labelH, gap,
+	)
+	drawTextCentered(ctx, int(labelPos2.X), int(labelPos2.Y), label2, colorBlack)
+
+	return labelPos1.X, labelPos1.Y
+}
+
 // labelBox represents a rectangular occupied region
 type labelBox struct {
 	x, y, w, h float64
@@ -797,107 +1336,112 @@ func boxesOverlap(x1, y1, w1, h1, x2, y2, w2, h2 float64) bool {
 	return math.Abs(x1-x2) < (w1+w2)/2 && math.Abs(y1-y2) < (h1+h2)/2
 }
 
-// drawSelfLoopPNG draws a self-loop on a state (on the right side).
-func drawSelfLoopPNG(ctx *renderContext, x, y, rx, ry float64, label string, occupiedBoxes []labelBox, graphCentreY float64) {
-	// Draw a ~300-degree arc that touches the right edge of the ellipse
-	
-	// Arc size - 20% larger than previous v18
-	arcRx := rx * 0.48  // Horizontal radius of arc
-	arcRy := ry * 0.42  // Vertical radius of arc (flatter)
-	
-	// Position arc so its left edge touches the state's right edge
-	arcCx := x + rx + arcRx
-	arcCy := y
-	
-	// Arc sweep: ~306°
-	startAngle := -0.85 * math.Pi  // -153° (top-left of arc)
-	endAngle := 0.85 * math.Pi     // +153° (bottom-left of arc)
-	
-	// Draw the arc
-	steps := 50
-	var prevPx, prevPy float64
-	for i := 0; i <= steps; i++ {
-		t := float64(i) / float64(steps)
-		angle := startAngle + t*(endAngle-startAngle)
-		px := arcCx + arcRx*math.Cos(angle)
-		py := arcCy + arcRy*math.Sin(angle)
-		
-		if i > 0 {
-			drawLine(ctx, prevPx, prevPy, px, py, colorBlack)
+// drawSelfLoopPNG draws a self-loop using the unified 7-point Bézier approach.
+func drawSelfLoopPNG(ctx *renderContext, x, y, rx, ry float64, label string, occupiedBoxes []labelBox, graphCentreY, canvasW, canvasH float64) {
+	state := Ellipse{CX: x, CY: y, RX: rx, RY: ry}
+
+	// Choose the best side for the loop
+	side := ChooseSelfLoopSide(state, canvasW, canvasH, nil)
+
+	params := DefaultSelfLoopParams()
+	params.Side = side
+
+	points := SelfLoopControlPoints(state, params, ctx.scale)
+
+	// Check bounds and adjust side if needed
+	minX, minY, maxX, maxY := SelfLoopBounds(points)
+	margin := 10.0 * ctx.scale
+	if minX < margin || minY < margin || maxX > canvasW-margin || maxY > canvasH-margin {
+		// Try alternative sides
+		for _, altSide := range []LoopSide{LoopTop, LoopLeft, LoopBottom, LoopRight} {
+			if altSide == side {
+				continue
+			}
+			altParams := params
+			altParams.Side = altSide
+			altPoints := SelfLoopControlPoints(state, altParams, ctx.scale)
+			aMinX, aMinY, aMaxX, aMaxY := SelfLoopBounds(altPoints)
+			if aMinX >= margin && aMinY >= margin && aMaxX <= canvasW-margin && aMaxY <= canvasH-margin {
+				points = altPoints
+				params.Side = altSide
+				break
+			}
 		}
-		prevPx, prevPy = px, py
 	}
-	
-	// Arrowhead at end of arc
-	endPx := arcCx + arcRx*math.Cos(endAngle)
-	endPy := arcCy + arcRy*math.Sin(endAngle)
-	
-	// Tangent direction at end
-	tx := -arcRx * math.Sin(endAngle)
-	ty := arcRy * math.Cos(endAngle)
+
+	// Draw the two cubic Bézier segments
+	drawCubicBezier(ctx, points[0], points[1], points[2], points[3], colorBlack)
+	drawCubicBezier(ctx, points[3], points[4], points[5], points[6], colorBlack)
+
+	// Draw arrowhead at P6
+	// Tangent direction at end: derivative of cubic Bézier at t=1
+	// B'(1) = 3(P6 - P5)
+	tx := 3 * (points[6].X - points[5].X)
+	ty := 3 * (points[6].Y - points[5].Y)
 	dist := math.Sqrt(tx*tx + ty*ty)
 	if dist > 0 {
 		tx /= dist
 		ty /= dist
 	}
-	
+
 	arrowLen := 8.0 * ctx.scale
 	arrowWidth := 4.0 * ctx.scale
-	
-	ax1 := endPx - tx*arrowLen + ty*arrowWidth
-	ay1 := endPy - ty*arrowLen - tx*arrowWidth
-	ax2 := endPx - tx*arrowLen - ty*arrowWidth
-	ay2 := endPy - ty*arrowLen + tx*arrowWidth
-	
-	drawLine(ctx, endPx, endPy, ax1, ay1, colorBlack)
-	drawLine(ctx, endPx, endPy, ax2, ay2, colorBlack)
+
+	ax1 := points[6].X - tx*arrowLen + ty*arrowWidth
+	ay1 := points[6].Y - ty*arrowLen - tx*arrowWidth
+	ax2 := points[6].X - tx*arrowLen - ty*arrowWidth
+	ay2 := points[6].Y - ty*arrowLen + tx*arrowWidth
+
+	drawLine(ctx, points[6].X, points[6].Y, ax1, ay1, colorBlack)
+	drawLine(ctx, points[6].X, points[6].Y, ax2, ay2, colorBlack)
 	for t := 0.0; t <= 1.0; t += 0.05 {
 		mx := ax1 + (ax2-ax1)*t
 		my := ay1 + (ay2-ay1)*t
-		drawLine(ctx, endPx, endPy, mx, my, colorBlack)
+		drawLine(ctx, points[6].X, points[6].Y, mx, my, colorBlack)
 	}
-	
-	// Smart label placement: try multiple positions and pick the first unoccupied one
-	// Estimate label size
+
+	// Label placement with collision avoidance
 	labelW := float64(len(label)) * ctx.fontSize * 0.6
 	labelH := ctx.fontSize
-	
-	// Candidate positions: right, above, below (based on graph position)
-	type candidate struct {
-		x, y float64
-	}
-	var candidates []candidate
-	
-	// Right of loop (default, usually safe)
-	candidates = append(candidates, candidate{arcCx + arcRx + 6*ctx.scale + labelW/2, arcCy})
-	
-	// Above or below based on position in graph
-	if y > graphCentreY {
-		// State in lower half - prefer above
-		candidates = append(candidates, candidate{arcCx, arcCy - arcRy - 8*ctx.scale})
-		candidates = append(candidates, candidate{arcCx, arcCy + arcRy + 8*ctx.scale})
-	} else {
-		// State in upper half - prefer below
-		candidates = append(candidates, candidate{arcCx, arcCy + arcRy + 8*ctx.scale})
-		candidates = append(candidates, candidate{arcCx, arcCy - arcRy - 8*ctx.scale})
-	}
-	
-	// Find first non-overlapping position
-	bestX, bestY := candidates[0].x, candidates[0].y
-	for _, c := range candidates {
-		overlaps := false
-		for _, box := range occupiedBoxes {
-			if boxesOverlap(c.x, c.y, labelW, labelH, box.x, box.y, box.w, box.h) {
-				overlaps = true
-				break
-			}
-		}
-		if !overlaps {
-			bestX, bestY = c.x, c.y
+	labelPos := SelfLoopLabelPosition(points, params.Side, labelW, labelH, ctx.scale)
+
+	// Check for collisions with occupied boxes
+	bestX, bestY := labelPos.X, labelPos.Y
+	foundClear := true
+
+	for _, box := range occupiedBoxes {
+		if boxesOverlap(labelPos.X, labelPos.Y, labelW, labelH, box.x, box.y, box.w, box.h) {
+			foundClear = false
 			break
 		}
 	}
-	
+
+	if !foundClear {
+		// Try alternative positions
+		apex := points[3]
+		gap := 8.0 * ctx.scale
+		candidates := []Point{
+			labelPos,
+			{apex.X + gap + labelW/2, apex.Y - labelH},
+			{apex.X + gap + labelW/2, apex.Y + labelH},
+			{apex.X - gap - labelW/2, apex.Y},
+		}
+
+		for _, c := range candidates {
+			overlaps := false
+			for _, box := range occupiedBoxes {
+				if boxesOverlap(c.X, c.Y, labelW, labelH, box.x, box.y, box.w, box.h) {
+					overlaps = true
+					break
+				}
+			}
+			if !overlaps {
+				bestX, bestY = c.X, c.Y
+				break
+			}
+		}
+	}
+
 	drawTextCentered(ctx, int(bestX), int(bestY), label, colorBlack)
 }
 

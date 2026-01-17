@@ -1,0 +1,42 @@
+{
+  "name": "Compiler Pipeline",
+  "type": "mealy",
+  "states": [
+    "start",
+    "lexer",
+    "parser",
+    "ast",
+    "semantic",
+    "ir_gen",
+    "optimize",
+    "codegen",
+    "link",
+    "done",
+    "error"
+  ],
+  "initial": "start",
+  "accepting": ["done"],
+  "transitions": [
+    {"from": "start", "to": ["lexer"], "on": "source", "out": "tokens"},
+    {"from": "lexer", "to": ["parser"], "on": "valid", "out": "tree"},
+    {"from": "lexer", "to": ["error"], "on": "invalid", "out": "lex_error"},
+    {"from": "lexer", "to": ["lexer"], "on": "continue", "out": "more_tokens"},
+    {"from": "parser", "to": ["ast"], "on": "complete", "out": "ast_node"},
+    {"from": "parser", "to": ["error"], "on": "syntax_error", "out": "parse_error"},
+    {"from": "parser", "to": ["parser"], "on": "reduce", "out": "partial"},
+    {"from": "ast", "to": ["semantic"], "on": "analyze", "out": "typed_ast"},
+    {"from": "ast", "to": ["error"], "on": "malformed", "out": "ast_error"},
+    {"from": "semantic", "to": ["ir_gen"], "on": "valid", "out": "checked"},
+    {"from": "semantic", "to": ["error"], "on": "type_error", "out": "sem_error"},
+    {"from": "semantic", "to": ["semantic"], "on": "infer", "out": "types"},
+    {"from": "ir_gen", "to": ["optimize"], "on": "emit", "out": "ir"},
+    {"from": "ir_gen", "to": ["codegen"], "on": "skip_opt", "out": "raw_ir"},
+    {"from": "optimize", "to": ["optimize"], "on": "pass", "out": "improved"},
+    {"from": "optimize", "to": ["codegen"], "on": "done", "out": "opt_ir"},
+    {"from": "codegen", "to": ["link"], "on": "generate", "out": "object"},
+    {"from": "codegen", "to": ["error"], "on": "target_error", "out": "gen_error"},
+    {"from": "link", "to": ["done"], "on": "success", "out": "binary"},
+    {"from": "link", "to": ["error"], "on": "unresolved", "out": "link_error"},
+    {"from": "error", "to": ["start"], "on": "retry", "out": "reset"}
+  ]
+}

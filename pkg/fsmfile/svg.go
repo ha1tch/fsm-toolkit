@@ -285,8 +285,12 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 		label := strings.Join(labels, ", ")
 
 		if key.from == key.to {
-			// Self-loop
-			drawSelfLoop(&sb, fromPos[0], fromPos[1], scaledRadius, label, opts.LabelSize)
+			// Self-loop - compute ellipse dimensions for the state
+			labelLen := len(key.from)
+			textWidth := float64(labelLen*stateLabelSize) * 0.6
+			stateWidth := math.Max(scaledRadius*2, textWidth+40)
+			stateHeight := math.Max(scaledRadius*1.6, float64(stateLabelSize)+24)
+			drawSelfLoop(&sb, fromPos[0], fromPos[1], stateWidth/2, stateHeight/2, label, opts.LabelSize, float64(opts.Width), float64(opts.Height))
 		} else {
 			// Check for bidirectional
 			reverseKey := transKey{key.to, key.from}
@@ -553,29 +557,52 @@ func drawBidiTransition(sb *strings.Builder, x1, y1, x2, y2, r float64, label1, 
 `, cx2, cy2+12, html.EscapeString(label2)))
 }
 
-func drawSelfLoop(sb *strings.Builder, x, y, r float64, label string, fontSize int) {
-	// Draw self-loop as a curve above the state
-	loopR := r * 0.6
+func drawSelfLoop(sb *strings.Builder, x, y, rx, ry float64, label string, fontSize int, canvasW, canvasH float64) {
+	state := Ellipse{CX: x, CY: y, RX: rx, RY: ry}
 
-	// Arc path for self-loop
-	startAngle := math.Pi * 0.75
-	endAngle := math.Pi * 0.25
+	// Choose the best side for the loop
+	side := ChooseSelfLoopSide(state, canvasW, canvasH, nil)
 
-	sx := x + r*math.Cos(startAngle+math.Pi/2)
-	sy := y + r*math.Sin(startAngle+math.Pi/2)*-1
+	params := DefaultSelfLoopParams()
+	params.Side = side
 
-	// Use a bezier curve for the loop
-	cx1 := x - loopR*1.5
-	cy1 := y - r - loopR*2
-	cx2 := x + loopR*1.5
-	cy2 := y - r - loopR*2
-	ex := x + r*math.Cos(endAngle+math.Pi/2)
-	ey := y + r*math.Sin(endAngle+math.Pi/2)*-1
+	points := SelfLoopControlPoints(state, params, 1.0)
 
-	sb.WriteString(fmt.Sprintf(`<path d="M%.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f" class="transition-self"/>
-`, sx, sy, cx1, cy1, cx2, cy2, ex, ey))
+	// Check bounds and adjust side if needed
+	minX, minY, maxX, maxY := SelfLoopBounds(points)
+	margin := 10.0
+	if minX < margin || minY < margin || maxX > canvasW-margin || maxY > canvasH-margin {
+		// Try alternative sides
+		for _, altSide := range []LoopSide{LoopTop, LoopLeft, LoopBottom, LoopRight} {
+			if altSide == side {
+				continue
+			}
+			altParams := params
+			altParams.Side = altSide
+			altPoints := SelfLoopControlPoints(state, altParams, 1.0)
+			aMinX, aMinY, aMaxX, aMaxY := SelfLoopBounds(altPoints)
+			if aMinX >= margin && aMinY >= margin && aMaxX <= canvasW-margin && aMaxY <= canvasH-margin {
+				points = altPoints
+				params.Side = altSide
+				break
+			}
+		}
+	}
 
-	// Label above loop
-	sb.WriteString(fmt.Sprintf(`<text x="%.1f" y="%.1f" class="trans-label" text-anchor="middle">%s</text>
-`, x, y-r-loopR*2-8, html.EscapeString(label)))
+	// SVG cubic Bézier path: M start C ctrl1 ctrl2 end C ctrl3 ctrl4 end2
+	sb.WriteString(fmt.Sprintf(
+		`<path d="M%.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f C%.1f,%.1f %.1f,%.1f %.1f,%.1f" class="transition-self"/>
+`,
+		points[0].X, points[0].Y,
+		points[1].X, points[1].Y, points[2].X, points[2].Y, points[3].X, points[3].Y,
+		points[4].X, points[4].Y, points[5].X, points[5].Y, points[6].X, points[6].Y))
+
+	// Label
+	labelW := float64(len(label)*fontSize) * 0.6
+	labelH := float64(fontSize)
+	labelPos := SelfLoopLabelPosition(points, params.Side, labelW, labelH, 1.0)
+	sb.WriteString(fmt.Sprintf(
+		`<text x="%.1f" y="%.1f" class="trans-label" text-anchor="middle">%s</text>
+`,
+		labelPos.X, labelPos.Y, html.EscapeString(label)))
 }

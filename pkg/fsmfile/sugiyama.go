@@ -535,3 +535,374 @@ func LayoutQuality(f *fsm.FSM, positions map[string][2]int) float64 {
 	// Score: prefer low variance (consistent edge lengths)
 	return math.Sqrt(variance)
 }
+
+// SugiyamaLayoutFull performs Sugiyama layout with virtual nodes and routing boxes.
+// This extended version provides routing information for edges that span multiple layers.
+func SugiyamaLayoutFull(f *fsm.FSM, width, height int) *LayoutResult {
+	result := NewLayoutResult(width, height)
+
+	if len(f.States) == 0 {
+		return result
+	}
+
+	// Build graph structure
+	g := buildGraph(f)
+
+	// Phase 1: Layer assignment
+	layers := assignLayers(g, f.Initial)
+
+	// Build rank lookup before inserting virtual nodes
+	rankOf := make(map[string]int)
+	for rank, layer := range layers {
+		for _, name := range layer {
+			rankOf[name] = rank
+		}
+	}
+
+	// Phase 1.5: Insert virtual nodes for long edges
+	layers, virtualEdges, g := insertVirtualNodes(layers, g, rankOf)
+
+	// Update rankOf with virtual nodes
+	for rank, layer := range layers {
+		for _, name := range layer {
+			rankOf[name] = rank
+		}
+	}
+
+	// Phase 2: Crossing minimisation (multiple passes)
+	for i := 0; i < 4; i++ {
+		layers = reduceCrossings(layers, g)
+	}
+
+	// Phase 3: Horizontal positioning within layers
+	positions := assignPositions(layers, g, width, height)
+
+	// Calculate label widths for all nodes
+	labelWidth := make(map[string]float64)
+	for _, layer := range layers {
+		for _, name := range layer {
+			if isVirtualNode(name) {
+				labelWidth[name] = 10 // Virtual nodes are thin
+			} else {
+				textWidth := float64(len(name)) * 7.2
+				labelWidth[name] = math.Max(60, textWidth+40)
+			}
+		}
+	}
+
+	// Build rank info
+	result.Ranks = make([]RankInfo, len(layers))
+	layerSpacing := 4
+	if height > 10 {
+		layerSpacing = (height - 4) / len(layers)
+		if layerSpacing < 4 {
+			layerSpacing = 4
+		}
+		if layerSpacing > 10 {
+			layerSpacing = 10
+		}
+	}
+
+	for i, layer := range layers {
+		// Calculate Y position and height for this rank
+		y := float64(2 + i*layerSpacing)
+		result.Ranks[i] = RankInfo{
+			Y:      y * 20.0, // Scale to pixel coordinates
+			Height: float64(layerSpacing) * 20.0,
+			Nodes:  make([]string, len(layer)),
+		}
+		copy(result.Ranks[i].Nodes, layer)
+	}
+
+	// Phase 4: Compute routing boxes for each virtual edge
+	for edgeID, vnodes := range virtualEdges {
+		boxes := computeRoutingBoxes(vnodes, layers, positions, labelWidth, rankOf, width)
+		waypoints := computeWaypoints(vnodes, positions)
+
+		from, to := parseEdgeID(edgeID)
+		result.Edges[edgeID] = EdgeLayout{
+			From:       from,
+			To:         to,
+			Waypoints:  waypoints,
+			Boxes:      boxes,
+			IsSelfLoop: false,
+			IsBackEdge: rankOf[to] < rankOf[from],
+			IsFlatEdge: rankOf[from] == rankOf[to],
+		}
+	}
+
+	// Also add direct edges (no virtual nodes)
+	for from, tos := range g.forward {
+		if isVirtualNode(from) {
+			continue
+		}
+		for _, to := range tos {
+			if isVirtualNode(to) {
+				continue // This edge goes through virtual nodes
+			}
+			edgeID := from + "->" + to
+			if _, exists := result.Edges[edgeID]; !exists {
+				// Direct edge
+				fromPos := positions[from]
+				toPos := positions[to]
+				result.Edges[edgeID] = EdgeLayout{
+					From: from,
+					To:   to,
+					Waypoints: []Point{
+						{float64(fromPos[0]) * 10.0, float64(fromPos[1]) * 20.0},
+						{float64(toPos[0]) * 10.0, float64(toPos[1]) * 20.0},
+					},
+					Boxes:      nil,
+					IsSelfLoop: from == to,
+					IsBackEdge: rankOf[to] < rankOf[from],
+					IsFlatEdge: rankOf[from] == rankOf[to],
+				}
+			}
+		}
+	}
+
+	// Package node results (excluding virtual nodes)
+	for name, pos := range positions {
+		if isVirtualNode(name) {
+			continue
+		}
+
+		// Find order within rank
+		order := 0
+		rank := rankOf[name]
+		for i, n := range layers[rank] {
+			if n == name {
+				order = i
+				break
+			}
+		}
+
+		result.Nodes[name] = NodeLayout{
+			X:       float64(pos[0]),
+			Y:       float64(pos[1]),
+			Width:   labelWidth[name],
+			Height:  30, // Default height
+			Rank:    rank,
+			Order:   order,
+			Virtual: false,
+			EdgeID:  "",
+		}
+	}
+
+	return result
+}
+
+// isVirtualNode checks if a node name represents a virtual node.
+func isVirtualNode(name string) bool {
+	return len(name) > 3 && name[:3] == "_v_"
+}
+
+// insertVirtualNodes adds virtual nodes for edges spanning multiple ranks.
+// Returns updated layers, a map of edge IDs to virtual node lists, and updated graph.
+func insertVirtualNodes(layers [][]string, g *graph, rankOf map[string]int) ([][]string, map[string][]string, *graph) {
+	virtualEdges := make(map[string][]string) // edgeID -> list of virtual node names
+
+	// Create a copy of the graph to modify
+	newG := &graph{
+		nodes:    make([]string, len(g.nodes)),
+		forward:  make(map[string][]string),
+		backward: make(map[string][]string),
+	}
+	copy(newG.nodes, g.nodes)
+	for k, v := range g.forward {
+		newG.forward[k] = make([]string, len(v))
+		copy(newG.forward[k], v)
+	}
+	for k, v := range g.backward {
+		newG.backward[k] = make([]string, len(v))
+		copy(newG.backward[k], v)
+	}
+
+	// Find all edges that span multiple ranks
+	edgesToProcess := make([][2]string, 0)
+	for from, tos := range g.forward {
+		for _, to := range tos {
+			if from == to {
+				continue // Skip self-loops
+			}
+			fromRank, okFrom := rankOf[from]
+			toRank, okTo := rankOf[to]
+			if !okFrom || !okTo {
+				continue
+			}
+
+			rankDiff := toRank - fromRank
+			if rankDiff > 1 {
+				edgesToProcess = append(edgesToProcess, [2]string{from, to})
+			}
+		}
+	}
+
+	// Process each long edge
+	for _, edge := range edgesToProcess {
+		from, to := edge[0], edge[1]
+		fromRank := rankOf[from]
+		toRank := rankOf[to]
+		edgeID := from + "->" + to
+
+		var vnodes []string
+
+		// Insert virtual nodes for each intermediate rank
+		for r := fromRank + 1; r < toRank; r++ {
+			vname := "_v_" + from + "_" + to + "_" + itoa(r)
+			layers[r] = append(layers[r], vname)
+			vnodes = append(vnodes, vname)
+			rankOf[vname] = r
+			newG.nodes = append(newG.nodes, vname)
+			newG.forward[vname] = []string{}
+			newG.backward[vname] = []string{}
+		}
+
+		// Update graph adjacency
+		if len(vnodes) > 0 {
+			// Remove direct edge from->to
+			newG.forward[from] = removeFromSlice(newG.forward[from], to)
+			newG.backward[to] = removeFromSlice(newG.backward[to], from)
+
+			// Add edge from->first_virtual
+			firstV := vnodes[0]
+			newG.forward[from] = append(newG.forward[from], firstV)
+			newG.backward[firstV] = append(newG.backward[firstV], from)
+
+			// Chain virtual nodes
+			for i := 0; i < len(vnodes)-1; i++ {
+				curr := vnodes[i]
+				next := vnodes[i+1]
+				newG.forward[curr] = append(newG.forward[curr], next)
+				newG.backward[next] = append(newG.backward[next], curr)
+			}
+
+			// Add edge last_virtual->to
+			lastV := vnodes[len(vnodes)-1]
+			newG.forward[lastV] = append(newG.forward[lastV], to)
+			newG.backward[to] = append(newG.backward[to], lastV)
+
+			virtualEdges[edgeID] = vnodes
+		}
+	}
+
+	return layers, virtualEdges, newG
+}
+
+// computeRoutingBoxes creates routing constraints for an edge.
+func computeRoutingBoxes(vnodes []string, layers [][]string, positions map[string][2]int,
+	labelWidth map[string]float64, rankOf map[string]int, canvasWidth int) []RoutingBox {
+
+	if len(vnodes) == 0 {
+		return nil
+	}
+
+	boxes := make([]RoutingBox, len(vnodes))
+	minGap := 5.0
+
+	for i, vname := range vnodes {
+		rank := rankOf[vname]
+		layer := layers[rank]
+
+		// Find position of vnode in layer
+		pos := -1
+		for j, name := range layer {
+			if name == vname {
+				pos = j
+				break
+			}
+		}
+
+		// Find left and right neighbors
+		var leftBound, rightBound float64
+
+		if pos > 0 {
+			leftNeighbor := layer[pos-1]
+			leftPos := positions[leftNeighbor]
+			lw := labelWidth[leftNeighbor]
+			if lw == 0 {
+				lw = 60
+			}
+			leftBound = float64(leftPos[0])*10.0 + lw/2 + minGap
+		} else {
+			leftBound = 0
+		}
+
+		if pos < len(layer)-1 {
+			rightNeighbor := layer[pos+1]
+			rightPos := positions[rightNeighbor]
+			rw := labelWidth[rightNeighbor]
+			if rw == 0 {
+				rw = 60
+			}
+			rightBound = float64(rightPos[0])*10.0 - rw/2 - minGap
+		} else {
+			rightBound = float64(canvasWidth)
+		}
+
+		// Compute vertical bounds based on rank
+		vpos := positions[vname]
+		rankY := float64(vpos[1]) * 20.0
+		rankHeight := 20.0 * 4 // Default layer spacing
+
+		boxes[i] = RoutingBox{
+			Left:   leftBound,
+			Right:  rightBound,
+			Top:    rankY - rankHeight/2,
+			Bottom: rankY + rankHeight/2,
+		}
+	}
+
+	return boxes
+}
+
+// computeWaypoints generates waypoints through virtual nodes.
+func computeWaypoints(vnodes []string, positions map[string][2]int) []Point {
+	waypoints := make([]Point, len(vnodes))
+
+	for i, vname := range vnodes {
+		pos := positions[vname]
+		waypoints[i] = Point{
+			X: float64(pos[0]) * 10.0,
+			Y: float64(pos[1]) * 20.0,
+		}
+	}
+
+	return waypoints
+}
+
+// parseEdgeID splits an edge ID "from->to" into its components.
+func parseEdgeID(edgeID string) (from, to string) {
+	for i := 0; i < len(edgeID)-1; i++ {
+		if edgeID[i] == '-' && edgeID[i+1] == '>' {
+			return edgeID[:i], edgeID[i+2:]
+		}
+	}
+	return edgeID, ""
+}
+
+// removeFromSlice removes the first occurrence of item from slice.
+func removeFromSlice(slice []string, item string) []string {
+	for i, s := range slice {
+		if s == item {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
+}
+
+// itoa converts an integer to a string (simple implementation).
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + itoa(-n)
+	}
+	digits := ""
+	for n > 0 {
+		digits = string('0'+byte(n%10)) + digits
+		n /= 10
+	}
+	return digits
+}

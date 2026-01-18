@@ -138,6 +138,16 @@ type Editor struct {
 	rightDownX     int
 	rightDownY     int
 
+	// Middle-button tracking (canvas drag)
+	middleMouseDown bool
+	middleDownX     int
+	middleDownY     int
+
+	// Canvas drag mode (Ctrl+D or middle-drag)
+	canvasDragMode   bool
+	dragStartOffsetX int // viewport offset when drag started
+	dragStartOffsetY int
+
 	// Move mode state (keyboard)
 	moveStateIdx int // state being moved
 	moveOrigX    int // original position for undo
@@ -213,6 +223,12 @@ type StatePos struct {
 	X, Y int
 }
 
+// Virtual canvas dimensions (logical coordinate space)
+const (
+	CanvasMaxWidth  = 512
+	CanvasMaxHeight = 512
+)
+
 // Mode represents editor mode
 type Mode int
 
@@ -225,8 +241,9 @@ const (
 	ModeAddTransition
 	ModeSelectInput
 	ModeSelectOutput
-	ModeMove // keyboard-driven state movement
-	ModeHelp // help overlay
+	ModeMove       // keyboard-driven state movement
+	ModeHelp       // help overlay
+	ModeCanvasDrag // canvas panning with minimap
 )
 
 // MessageType for status messages
@@ -412,6 +429,12 @@ func (ed *Editor) handleKey(ev *tcell.EventKey) bool {
 		return false
 	}
 
+	// Ctrl+D: Toggle canvas drag mode (with minimap)
+	if ev.Key() == tcell.KeyCtrlD {
+		ed.toggleCanvasDragMode()
+		return false
+	}
+
 	switch ed.mode {
 	case ModeMenu:
 		return ed.handleMenuKey(ev)
@@ -433,6 +456,8 @@ func (ed *Editor) handleKey(ev *tcell.EventKey) bool {
 		return ed.handleMoveKey(ev)
 	case ModeHelp:
 		return ed.handleHelpKey(ev)
+	case ModeCanvasDrag:
+		return ed.handleCanvasDragKey(ev)
 	}
 	return false
 }
@@ -551,6 +576,83 @@ func (ed *Editor) toggleSidebarCollapse() {
 	}
 }
 
+// toggleCanvasDragMode enters or exits canvas drag mode (with minimap)
+func (ed *Editor) toggleCanvasDragMode() {
+	if ed.mode == ModeCanvasDrag {
+		ed.exitCanvasDragMode()
+	} else if ed.mode == ModeCanvas {
+		ed.enterCanvasDragMode()
+	}
+}
+
+// enterCanvasDragMode activates canvas panning with minimap display
+func (ed *Editor) enterCanvasDragMode() {
+	ed.mode = ModeCanvasDrag
+	ed.canvasDragMode = true
+	ed.dragStartOffsetX = ed.canvasOffsetX
+	ed.dragStartOffsetY = ed.canvasOffsetY
+	ed.showMessage("Canvas drag mode - Arrow keys to pan, Esc to exit", MsgInfo)
+}
+
+// exitCanvasDragMode returns to normal canvas mode
+func (ed *Editor) exitCanvasDragMode() {
+	ed.mode = ModeCanvas
+	ed.canvasDragMode = false
+	ed.middleMouseDown = false
+}
+
+// panViewport moves the viewport by the given delta, clamping to canvas bounds
+func (ed *Editor) panViewport(dx, dy int) {
+	ed.canvasOffsetX += dx
+	ed.canvasOffsetY += dy
+
+	// Clamp to valid range (0 to CanvasMax - visible area)
+	if ed.canvasOffsetX < 0 {
+		ed.canvasOffsetX = 0
+	}
+	if ed.canvasOffsetY < 0 {
+		ed.canvasOffsetY = 0
+	}
+
+	// Get visible canvas dimensions
+	w, h := ed.screen.Size()
+	visibleW := w - ed.sidebarWidth - 1
+	visibleH := h - 2 // status bar
+
+	maxOffsetX := CanvasMaxWidth - visibleW
+	maxOffsetY := CanvasMaxHeight - visibleH
+	if maxOffsetX < 0 {
+		maxOffsetX = 0
+	}
+	if maxOffsetY < 0 {
+		maxOffsetY = 0
+	}
+
+	if ed.canvasOffsetX > maxOffsetX {
+		ed.canvasOffsetX = maxOffsetX
+	}
+	if ed.canvasOffsetY > maxOffsetY {
+		ed.canvasOffsetY = maxOffsetY
+	}
+}
+
+// handleCanvasDragKey handles keys while in canvas drag mode
+func (ed *Editor) handleCanvasDragKey(ev *tcell.EventKey) bool {
+	switch ev.Key() {
+	case tcell.KeyEscape:
+		ed.exitCanvasDragMode()
+	case tcell.KeyUp:
+		ed.panViewport(0, -3)
+	case tcell.KeyDown:
+		ed.panViewport(0, 3)
+	case tcell.KeyLeft:
+		ed.panViewport(-3, 0)
+	case tcell.KeyRight:
+		ed.panViewport(3, 0)
+	}
+	return false
+}
+
 func (ed *Editor) handleSidebarScrollDrag(mouseY, screenH int) {
 	visibleHeight := screenH - 4
 	scrollTrackStart := 2
@@ -601,6 +703,25 @@ func (ed *Editor) handleSidebarScrollDrag(mouseY, screenH int) {
 }
 
 func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
+	// Check for Shift+Arrow for viewport panning
+	mod := ev.Modifiers()
+	if mod&tcell.ModShift != 0 {
+		switch ev.Key() {
+		case tcell.KeyUp:
+			ed.panViewport(0, -1)
+			return false
+		case tcell.KeyDown:
+			ed.panViewport(0, 1)
+			return false
+		case tcell.KeyLeft:
+			ed.panViewport(-1, 0)
+			return false
+		case tcell.KeyRight:
+			ed.panViewport(1, 0)
+			return false
+		}
+	}
+
 	switch ev.Key() {
 	case tcell.KeyEscape:
 		ed.mode = ModeMenu
@@ -1051,8 +1172,31 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 			if newY < 0 {
 				newY = 0
 			}
+			// Clamp to canvas bounds
+			if newX > CanvasMaxWidth-10 {
+				newX = CanvasMaxWidth - 10
+			}
+			if newY > CanvasMaxHeight-2 {
+				newY = CanvasMaxHeight - 2
+			}
 			ed.states[ed.dragStateIdx].X = newX
 			ed.states[ed.dragStateIdx].Y = newY
+
+			// Auto-scroll viewport when dragging near edge
+			edgeMargin := 3
+			scrollSpeed := 2
+			if x < edgeMargin {
+				ed.panViewport(-scrollSpeed, 0)
+			}
+			if x > canvasW-edgeMargin {
+				ed.panViewport(scrollSpeed, 0)
+			}
+			if y < edgeMargin {
+				ed.panViewport(0, -scrollSpeed)
+			}
+			if y > h-2-edgeMargin {
+				ed.panViewport(0, scrollSpeed)
+			}
 		}
 		return
 	}
@@ -1099,6 +1243,61 @@ func (ed *Editor) handleMouse(ev *tcell.EventMouse) {
 			}
 		}
 		ed.rightMouseDown = false
+	}
+
+	// Middle button handling (Button3) - canvas drag mode
+	middlePressed := buttons&tcell.Button3 != 0
+	if middlePressed {
+		if !ed.middleMouseDown {
+			// Middle button just pressed - enter canvas drag mode
+			ed.middleMouseDown = true
+			ed.middleDownX = x
+			ed.middleDownY = y
+			ed.dragStartOffsetX = ed.canvasOffsetX
+			ed.dragStartOffsetY = ed.canvasOffsetY
+			if ed.mode == ModeCanvas {
+				ed.mode = ModeCanvasDrag
+				ed.canvasDragMode = true
+			}
+		} else if ed.mode == ModeCanvasDrag {
+			// Middle button held - drag to pan viewport
+			dx := ed.middleDownX - x
+			dy := ed.middleDownY - y
+			ed.canvasOffsetX = ed.dragStartOffsetX + dx
+			ed.canvasOffsetY = ed.dragStartOffsetY + dy
+
+			// Clamp viewport
+			if ed.canvasOffsetX < 0 {
+				ed.canvasOffsetX = 0
+			}
+			if ed.canvasOffsetY < 0 {
+				ed.canvasOffsetY = 0
+			}
+			visibleW := w - ed.sidebarWidth - 1
+			visibleH := h - 2
+			maxOffsetX := CanvasMaxWidth - visibleW
+			maxOffsetY := CanvasMaxHeight - visibleH
+			if maxOffsetX < 0 {
+				maxOffsetX = 0
+			}
+			if maxOffsetY < 0 {
+				maxOffsetY = 0
+			}
+			if ed.canvasOffsetX > maxOffsetX {
+				ed.canvasOffsetX = maxOffsetX
+			}
+			if ed.canvasOffsetY > maxOffsetY {
+				ed.canvasOffsetY = maxOffsetY
+			}
+		}
+	} else {
+		// Middle button released
+		if ed.middleMouseDown {
+			ed.middleMouseDown = false
+			if ed.mode == ModeCanvasDrag {
+				ed.exitCanvasDragMode()
+			}
+		}
 	}
 
 	// Left button handling

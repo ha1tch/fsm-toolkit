@@ -91,6 +91,10 @@ func (ed *Editor) draw() {
 		ed.drawCanvas(w, h)
 		ed.drawSidebar(w, h)
 		ed.drawHelpOverlay(w, h)
+	case ModeCanvasDrag:
+		ed.drawCanvas(w, h)
+		ed.drawSidebar(w, h)
+		ed.drawMinimap(w, h)
 	}
 
 	ed.drawStatusBar(w, h)
@@ -227,6 +231,63 @@ func (ed *Editor) drawCanvas(w, h int) {
 	cy := ed.canvasCursorY - ed.canvasOffsetY
 	if cx >= 0 && cx < canvasW && cy >= 0 && cy < canvasH {
 		ed.screen.SetContent(cx, cy, '+', nil, styleCursor)
+	}
+
+	// Draw scroll indicators if content exists beyond viewport
+	ed.drawScrollIndicators(canvasW, canvasH)
+}
+
+// drawScrollIndicators shows arrows at edges when content exists off-screen
+func (ed *Editor) drawScrollIndicators(canvasW, canvasH int) {
+	styleIndicator := tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
+	
+	// Check for content beyond each edge
+	hasLeft := false
+	hasRight := false
+	hasTop := false
+	hasBottom := false
+	
+	for _, sp := range ed.states {
+		if sp.X < ed.canvasOffsetX {
+			hasLeft = true
+		}
+		if sp.X > ed.canvasOffsetX+canvasW {
+			hasRight = true
+		}
+		if sp.Y < ed.canvasOffsetY {
+			hasTop = true
+		}
+		if sp.Y > ed.canvasOffsetY+canvasH {
+			hasBottom = true
+		}
+	}
+	
+	// Also check if viewport is scrolled (content might be there even without states)
+	if ed.canvasOffsetX > 0 {
+		hasLeft = true
+	}
+	if ed.canvasOffsetY > 0 {
+		hasTop = true
+	}
+	if ed.canvasOffsetX+canvasW < CanvasMaxWidth {
+		hasRight = true
+	}
+	if ed.canvasOffsetY+canvasH < CanvasMaxHeight {
+		hasBottom = true
+	}
+	
+	// Draw indicators at edges (subtle, near corners)
+	if hasLeft {
+		ed.screen.SetContent(0, canvasH/2, '◀', nil, styleIndicator)
+	}
+	if hasRight {
+		ed.screen.SetContent(canvasW-1, canvasH/2, '▶', nil, styleIndicator)
+	}
+	if hasTop {
+		ed.screen.SetContent(canvasW/2, 0, '▲', nil, styleIndicator)
+	}
+	if hasBottom {
+		ed.screen.SetContent(canvasW/2, canvasH-1, '▼', nil, styleIndicator)
 	}
 }
 
@@ -1232,9 +1293,20 @@ func (ed *Editor) drawHelpOverlay(w, h int) {
 			title: "Navigation",
 			items: [][2]string{
 				{"↑ ↓ ← →", "Move the cursor around the canvas"},
+				{"Shift+↑↓←→", "Pan viewport (quick scroll without minimap)"},
 				{"Tab", "Cycle selection through states"},
 				{"Esc", "Return to main menu"},
 				{"H / ?", "Show this help screen"},
+			},
+		},
+		{
+			title: "Canvas Navigation",
+			items: [][2]string{
+				{"Ctrl+D", "Enter canvas drag mode (shows minimap)"},
+				{"Middle-drag", "Pan canvas with minimap overlay"},
+				{"", "  Arrow keys pan viewport in drag mode"},
+				{"", "  Esc or Ctrl+D to exit drag mode"},
+				{"", "  Canvas is 512×512 logical units"},
 			},
 		},
 		{
@@ -1469,4 +1541,152 @@ func (ed *Editor) drawHelpOverlay(w, h int) {
 	}
 	footerX := startX + (boxWidth-len(footer))/2
 	ed.drawString(footerX, startY+boxHeight-2, footer, styleHelp)
+}
+
+// drawMinimap draws a miniature overview of the 512x512 canvas
+// showing state positions and the current viewport rectangle
+func (ed *Editor) drawMinimap(screenW, screenH int) {
+	// Minimap dimensions: scale 512x512 down to fit nicely on screen
+	// Use 1:8 ratio, so minimap is 64x64 max, but cap to reasonable size
+	minimapW := 48
+	minimapH := 24
+	
+	// Adjust for screen size
+	if minimapW > screenW-10 {
+		minimapW = screenW - 10
+	}
+	if minimapH > screenH-8 {
+		minimapH = screenH - 8
+	}
+	if minimapW < 16 {
+		minimapW = 16
+	}
+	if minimapH < 8 {
+		minimapH = 8
+	}
+	
+	// Position: centered on screen
+	startX := (screenW - minimapW - 2) / 2
+	startY := (screenH - minimapH - 2) / 2
+	
+	// Calculate scale factors
+	scaleX := float64(CanvasMaxWidth) / float64(minimapW)
+	scaleY := float64(CanvasMaxHeight) / float64(minimapH)
+	
+	// Draw box
+	styleMinimap := tcell.StyleDefault.Background(tcell.NewRGBColor(32, 32, 48)).Foreground(tcell.ColorWhite)
+	styleMinimapBorder := tcell.StyleDefault.Foreground(tcell.ColorTeal)
+	styleMinimapState := tcell.StyleDefault.Foreground(tcell.ColorGreen).Background(tcell.NewRGBColor(32, 32, 48))
+	styleMinimapViewport := tcell.StyleDefault.Foreground(tcell.ColorYellow)
+	
+	// Draw border
+	for x := startX; x < startX+minimapW+2; x++ {
+		ed.screen.SetContent(x, startY, '─', nil, styleMinimapBorder)
+		ed.screen.SetContent(x, startY+minimapH+1, '─', nil, styleMinimapBorder)
+	}
+	for y := startY; y < startY+minimapH+2; y++ {
+		ed.screen.SetContent(startX, y, '│', nil, styleMinimapBorder)
+		ed.screen.SetContent(startX+minimapW+1, y, '│', nil, styleMinimapBorder)
+	}
+	ed.screen.SetContent(startX, startY, '┌', nil, styleMinimapBorder)
+	ed.screen.SetContent(startX+minimapW+1, startY, '┐', nil, styleMinimapBorder)
+	ed.screen.SetContent(startX, startY+minimapH+1, '└', nil, styleMinimapBorder)
+	ed.screen.SetContent(startX+minimapW+1, startY+minimapH+1, '┘', nil, styleMinimapBorder)
+	
+	// Title
+	title := " Canvas Navigator "
+	titleX := startX + (minimapW+2-len(title))/2
+	ed.drawString(titleX, startY, title, styleMinimapBorder.Bold(true))
+	
+	// Fill background
+	for y := startY + 1; y < startY+minimapH+1; y++ {
+		for x := startX + 1; x < startX+minimapW+1; x++ {
+			ed.screen.SetContent(x, y, ' ', nil, styleMinimap)
+		}
+	}
+	
+	// Draw states as dots
+	for _, sp := range ed.states {
+		// Convert state position to minimap coordinates
+		mx := int(float64(sp.X) / scaleX)
+		my := int(float64(sp.Y) / scaleY)
+		
+		// Clamp to minimap bounds
+		if mx >= 0 && mx < minimapW && my >= 0 && my < minimapH {
+			screenPosX := startX + 1 + mx
+			screenPosY := startY + 1 + my
+			ed.screen.SetContent(screenPosX, screenPosY, '●', nil, styleMinimapState)
+		}
+	}
+	
+	// Draw viewport rectangle
+	// Calculate visible area in minimap coordinates
+	visibleW := screenW - ed.sidebarWidth - 1
+	visibleH := screenH - 2
+	
+	vpLeft := int(float64(ed.canvasOffsetX) / scaleX)
+	vpTop := int(float64(ed.canvasOffsetY) / scaleY)
+	vpRight := int(float64(ed.canvasOffsetX+visibleW) / scaleX)
+	vpBottom := int(float64(ed.canvasOffsetY+visibleH) / scaleY)
+	
+	// Clamp viewport rect to minimap bounds
+	if vpLeft < 0 {
+		vpLeft = 0
+	}
+	if vpTop < 0 {
+		vpTop = 0
+	}
+	if vpRight >= minimapW {
+		vpRight = minimapW - 1
+	}
+	if vpBottom >= minimapH {
+		vpBottom = minimapH - 1
+	}
+	
+	// Draw viewport rectangle edges
+	for x := vpLeft; x <= vpRight; x++ {
+		screenPosX := startX + 1 + x
+		// Top edge
+		if vpTop >= 0 && vpTop < minimapH {
+			screenPosY := startY + 1 + vpTop
+			ed.screen.SetContent(screenPosX, screenPosY, '─', nil, styleMinimapViewport)
+		}
+		// Bottom edge
+		if vpBottom >= 0 && vpBottom < minimapH {
+			screenPosY := startY + 1 + vpBottom
+			ed.screen.SetContent(screenPosX, screenPosY, '─', nil, styleMinimapViewport)
+		}
+	}
+	for y := vpTop; y <= vpBottom; y++ {
+		screenPosY := startY + 1 + y
+		// Left edge
+		if vpLeft >= 0 && vpLeft < minimapW {
+			screenPosX := startX + 1 + vpLeft
+			ed.screen.SetContent(screenPosX, screenPosY, '│', nil, styleMinimapViewport)
+		}
+		// Right edge
+		if vpRight >= 0 && vpRight < minimapW {
+			screenPosX := startX + 1 + vpRight
+			ed.screen.SetContent(screenPosX, screenPosY, '│', nil, styleMinimapViewport)
+		}
+	}
+	
+	// Corners of viewport rectangle
+	if vpLeft >= 0 && vpLeft < minimapW && vpTop >= 0 && vpTop < minimapH {
+		ed.screen.SetContent(startX+1+vpLeft, startY+1+vpTop, '┌', nil, styleMinimapViewport)
+	}
+	if vpRight >= 0 && vpRight < minimapW && vpTop >= 0 && vpTop < minimapH {
+		ed.screen.SetContent(startX+1+vpRight, startY+1+vpTop, '┐', nil, styleMinimapViewport)
+	}
+	if vpLeft >= 0 && vpLeft < minimapW && vpBottom >= 0 && vpBottom < minimapH {
+		ed.screen.SetContent(startX+1+vpLeft, startY+1+vpBottom, '└', nil, styleMinimapViewport)
+	}
+	if vpRight >= 0 && vpRight < minimapW && vpBottom >= 0 && vpBottom < minimapH {
+		ed.screen.SetContent(startX+1+vpRight, startY+1+vpBottom, '┘', nil, styleMinimapViewport)
+	}
+	
+	// Footer with instructions
+	footer := "Arrow keys: Pan   Esc/Ctrl+D: Exit"
+	footerX := startX + (minimapW+2-len(footer))/2
+	ed.drawString(footerX, startY+minimapH+1, footer, styleMinimapBorder)
 }

@@ -924,7 +924,8 @@ func drawTransitionPNGWithPlacer(ctx *renderContext, x1, y1, x2, y2 float64, fro
 }
 
 // drawTransitionWithRouting draws a transition using obstacle-aware routing.
-// This is used when we have state ellipses to route around.
+// Uses visibility graph to find waypoints, then fits a smooth quadratic curve
+// guided by those waypoints (rather than passing exactly through each one).
 func drawTransitionWithRouting(ctx *renderContext, x1, y1, x2, y2 float64, fromDims, toDims [2]float64, label string, obstacles []Ellipse, placer *LabelPlacer) (float64, float64) {
 	dx := x2 - x1
 	dy := y2 - y1
@@ -952,42 +953,99 @@ func drawTransitionWithRouting(ctx *renderContext, x1, y1, x2, y2 float64, fromD
 	path := RouteAroundObstacles(start, end, obstacles)
 
 	var labelX, labelY float64
+	var cx, cy float64 // Control point for the curve
 
-	if len(path) <= 2 {
-		// Direct path - draw simple arrow
-		drawArrowLine(ctx, sx, sy, ex, ey, colorBlack)
-		labelPos := placer.PlaceLabelOnEdge(start, end, labelW, labelH, gap)
-		labelX, labelY = labelPos.X, labelPos.Y
-	} else {
-		// Path with waypoints - fit spline through them
-		spline := FitSplineThroughBoxes(start, end, nil) // No boxes, just waypoints
-		if len(path) > 2 {
-			// Use the path waypoints directly
-			spline = path
-		}
+	// Perpendicular direction (for curving away from direct line)
+	perpX := -ny
+	perpY := nx
 
-		// Draw the path as connected segments or as a smooth curve
-		drawPathWithArrow(ctx, spline, colorBlack)
+	// Default curve parameters
+	midX := (x1 + x2) / 2
+	midY := (y1 + y2) / 2
+	curveAmount := dist * 0.35
 
-		// Place label at midpoint of path
-		midIdx := len(path) / 2
-		labelAnchor := path[midIdx]
+	if len(path) > 2 {
+		// Path has waypoints - find the one that deviates most from direct line
+		// This guides where our smooth curve should arc
+		maxDev := 0.0
+		var guideX, guideY float64
 
-		// Calculate perpendicular direction at midpoint
-		var perpX, perpY float64
-		if midIdx > 0 && midIdx < len(path)-1 {
-			dx := path[midIdx+1].X - path[midIdx-1].X
-			dy := path[midIdx+1].Y - path[midIdx-1].Y
-			d := math.Sqrt(dx*dx + dy*dy)
-			if d > 0 {
-				perpX = -dy / d
-				perpY = dx / d
+		for i := 1; i < len(path)-1; i++ {
+			wp := path[i]
+			// Calculate perpendicular distance from waypoint to direct line
+			// Project waypoint onto line from start to end
+			t := ((wp.X-sx)*(ex-sx) + (wp.Y-sy)*(ey-sy)) / ((ex-sx)*(ex-sx) + (ey-sy)*(ey-sy))
+			// Closest point on line
+			closestX := sx + t*(ex-sx)
+			closestY := sy + t*(ey-sy)
+			// Distance from waypoint to line
+			dev := math.Sqrt(math.Pow(wp.X-closestX, 2) + math.Pow(wp.Y-closestY, 2))
+
+			if dev > maxDev {
+				maxDev = dev
+				guideX = wp.X
+				guideY = wp.Y
 			}
 		}
 
-		labelPos := placer.PlaceLabelOnCurve(labelAnchor, Point{perpX, perpY}, labelW, labelH, gap)
-		labelX, labelY = labelPos.X, labelPos.Y
+		// If we found a significant deviation, use it to guide the curve
+		if maxDev > dist*0.08 {
+			// Vector from midpoint of line to guide point
+			toGuideX := guideX - midX
+			toGuideY := guideY - midY
+			toGuideDist := math.Sqrt(toGuideX*toGuideX + toGuideY*toGuideY)
+
+			if toGuideDist > 1 {
+				// The control point should be in the direction of the guide,
+				// but pushed out enough for a smooth curve
+				// Use the larger of: standard curve amount or guide distance * 1.3
+				effectiveCurve := math.Max(curveAmount, toGuideDist*1.3)
+
+				cx = midX + (toGuideX/toGuideDist)*effectiveCurve
+				cy = midY + (toGuideY/toGuideDist)*effectiveCurve
+			} else {
+				// Guide is at midpoint, use standard perpendicular curve
+				cx = midX + perpX*curveAmount
+				cy = midY + perpY*curveAmount
+			}
+		} else {
+			// Waypoints don't deviate much, use standard curve
+			cx = midX + perpX*curveAmount
+			cy = midY + perpY*curveAmount
+		}
+	} else {
+		// Direct path or minimal waypoints - use standard curve
+		cx = midX + perpX*curveAmount
+		cy = midY + perpY*curveAmount
 	}
+
+	// Draw the smooth quadratic Bézier
+	drawQuadBezierArrow(ctx, sx, sy, cx, cy, ex, ey, colorBlack)
+
+	// Place label on the curve at t=0.5
+	curveMidX := 0.25*sx + 0.5*cx + 0.25*ex
+	curveMidY := 0.25*sy + 0.5*cy + 0.25*ey
+
+	// Calculate perpendicular at curve midpoint for label placement
+	tangentX := (ex - sx)
+	tangentY := (ey - sy)
+	tangentDist := math.Sqrt(tangentX*tangentX + tangentY*tangentY)
+
+	var labelPerpX, labelPerpY float64
+	if tangentDist > 0 {
+		labelPerpX = -tangentY / tangentDist
+		labelPerpY = tangentX / tangentDist
+	} else {
+		labelPerpX = perpX
+		labelPerpY = perpY
+	}
+
+	labelPos := placer.PlaceLabelOnCurve(
+		Point{curveMidX, curveMidY},
+		Point{labelPerpX, labelPerpY},
+		labelW, labelH, gap,
+	)
+	labelX, labelY = labelPos.X, labelPos.Y
 
 	drawTextCentered(ctx, int(labelX), int(labelY), label, colorBlack)
 	return labelX, labelY
@@ -1006,17 +1064,28 @@ func drawPathWithArrow(ctx *renderContext, path []Point, c color.Color) {
 		return
 	}
 
+	// For paths with few waypoints (3-4), add intermediate points to ensure smooth curves
+	// This prevents the "kinked" appearance near endpoints
+	smoothedPath := path
+	if len(path) <= 4 {
+		smoothedPath = addIntermediatePoints(path)
+	}
+
 	// Convert waypoints to smooth cubic Bézier using Catmull-Rom
 	// For each segment, we need 4 control points
-	smoothPath := waypointsToSmoothCurve(path)
+	smoothPath := waypointsToSmoothCurve(smoothedPath)
 	
 	// Draw the smooth curve
 	if len(smoothPath) >= 4 {
 		// Draw cubic Bézier segments
+		// smoothPath has format: [P0, C1, C2, P1, C3, C4, P2, ...]
+		// So for n waypoints, we have (n-1) segments, each using 4 points
+		// Total points = 1 + 3*(n-1) = 3n - 2
 		numSegments := (len(smoothPath) - 1) / 3
 		for seg := 0; seg < numSegments; seg++ {
 			i := seg * 3
-			if i+3 < len(smoothPath) {
+			// Need indices i, i+1, i+2, i+3
+			if i+3 <= len(smoothPath)-1 {
 				drawCubicBezier(ctx, smoothPath[i], smoothPath[i+1], smoothPath[i+2], smoothPath[i+3], c)
 			}
 		}
@@ -1041,15 +1110,13 @@ func drawPathWithArrow(ctx *renderContext, path []Point, c color.Color) {
 	
 	if len(smoothPath) >= 4 {
 		// Get tangent from last cubic segment
-		lastSeg := ((len(smoothPath) - 1) / 3) - 1
-		if lastSeg < 0 {
-			lastSeg = 0
-		}
-		i := lastSeg * 3
-		if i+3 < len(smoothPath) {
+		// Last segment starts at index (numSegments-1)*3
+		numSegments := (len(smoothPath) - 1) / 3
+		lastSegStart := (numSegments - 1) * 3
+		if lastSegStart >= 0 && lastSegStart+3 <= len(smoothPath)-1 {
 			// Tangent at t=1 of cubic Bézier: 3*(P3 - P2)
-			tx = smoothPath[i+3].X - smoothPath[i+2].X
-			ty = smoothPath[i+3].Y - smoothPath[i+2].Y
+			tx = smoothPath[lastSegStart+3].X - smoothPath[lastSegStart+2].X
+			ty = smoothPath[lastSegStart+3].Y - smoothPath[lastSegStart+2].Y
 		} else {
 			tx = last.X - path[len(path)-2].X
 			ty = last.Y - path[len(path)-2].Y
@@ -1087,6 +1154,53 @@ func drawPathWithArrow(ctx *renderContext, path []Point, c color.Color) {
 	}
 }
 
+// addIntermediatePoints adds points between waypoints to ensure smoother curves.
+// This is especially important for paths with only 3-4 waypoints.
+func addIntermediatePoints(path []Point) []Point {
+	if len(path) < 3 {
+		return path
+	}
+
+	result := make([]Point, 0, len(path)*2)
+	result = append(result, path[0])
+
+	for i := 0; i < len(path)-1; i++ {
+		p1 := path[i]
+		p2 := path[i+1]
+		
+		// Calculate distance between points
+		dx := p2.X - p1.X
+		dy := p2.Y - p1.Y
+		dist := math.Sqrt(dx*dx + dy*dy)
+		
+		// Add intermediate point(s) for long segments
+		if dist > 100 {
+			// Add point at 1/3 and 2/3 along the segment
+			result = append(result, Point{
+				X: p1.X + dx/3,
+				Y: p1.Y + dy/3,
+			})
+			result = append(result, Point{
+				X: p1.X + 2*dx/3,
+				Y: p1.Y + 2*dy/3,
+			})
+		} else if dist > 50 {
+			// Add point at midpoint
+			result = append(result, Point{
+				X: (p1.X + p2.X) / 2,
+				Y: (p1.Y + p2.Y) / 2,
+			})
+		}
+		
+		if i < len(path)-2 {
+			result = append(result, p2)
+		}
+	}
+	
+	result = append(result, path[len(path)-1])
+	return result
+}
+
 // waypointsToSmoothCurve converts a sequence of waypoints to cubic Bézier control points
 // using Catmull-Rom spline interpolation for smooth curves through all points.
 func waypointsToSmoothCurve(waypoints []Point) []Point {
@@ -1102,18 +1216,47 @@ func waypointsToSmoothCurve(waypoints []Point) []Point {
 	}
 
 	// Build extended waypoints with phantom points at start and end
+	// Use smarter phantom points that maintain curve continuity
 	extended := make([]Point, len(waypoints)+2)
-	// Phantom start: reflect first segment
-	extended[0] = Point{
-		X: 2*waypoints[0].X - waypoints[1].X,
-		Y: 2*waypoints[0].Y - waypoints[1].Y,
+	
+	// For the phantom start point, we want the curve to depart smoothly.
+	// If we have at least 3 waypoints, use the direction from waypoints[0] to waypoints[2]
+	// to inform the phantom, creating a more natural curve start.
+	if len(waypoints) >= 3 {
+		// Direction from first to third point (overall trend)
+		dx := waypoints[2].X - waypoints[0].X
+		dy := waypoints[2].Y - waypoints[0].Y
+		// Phantom is first point minus this direction scaled
+		extended[0] = Point{
+			X: waypoints[0].X - dx*0.5,
+			Y: waypoints[0].Y - dy*0.5,
+		}
+	} else {
+		// Fallback: reflect first segment
+		extended[0] = Point{
+			X: 2*waypoints[0].X - waypoints[1].X,
+			Y: 2*waypoints[0].Y - waypoints[1].Y,
+		}
 	}
+	
 	copy(extended[1:], waypoints)
-	// Phantom end: reflect last segment
+	
+	// For the phantom end point, similar logic
 	n := len(waypoints)
-	extended[len(extended)-1] = Point{
-		X: 2*waypoints[n-1].X - waypoints[n-2].X,
-		Y: 2*waypoints[n-1].Y - waypoints[n-2].Y,
+	if n >= 3 {
+		// Direction from third-to-last to last point (overall trend)
+		dx := waypoints[n-1].X - waypoints[n-3].X
+		dy := waypoints[n-1].Y - waypoints[n-3].Y
+		extended[len(extended)-1] = Point{
+			X: waypoints[n-1].X + dx*0.5,
+			Y: waypoints[n-1].Y + dy*0.5,
+		}
+	} else {
+		// Fallback: reflect last segment
+		extended[len(extended)-1] = Point{
+			X: 2*waypoints[n-1].X - waypoints[n-2].X,
+			Y: 2*waypoints[n-1].Y - waypoints[n-2].Y,
+		}
 	}
 
 	// Generate cubic Bézier control points using Catmull-Rom
@@ -1121,8 +1264,9 @@ func waypointsToSmoothCurve(waypoints []Point) []Point {
 	result := make([]Point, 0, (len(waypoints)-1)*3+1)
 	result = append(result, waypoints[0])
 
-	// Tension parameter (0.5 = Catmull-Rom)
-	tension := 0.5
+	// Tension parameter - higher values (up to 1.0) make tighter curves
+	// Lower values make smoother, wider curves
+	tension := 0.4 // Slightly less than standard Catmull-Rom for smoother curves
 
 	for i := 0; i < len(waypoints)-1; i++ {
 		p0 := extended[i]

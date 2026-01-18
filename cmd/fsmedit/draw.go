@@ -3,10 +3,35 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsm"
 )
+
+// FSM type display names (always uppercase for consistency)
+const (
+	DisplayTypeDFA   = "DFA"
+	DisplayTypeNFA   = "NFA"
+	DisplayTypeMoore = "MOORE"
+	DisplayTypeMealy = "MEALY"
+)
+
+// fsmTypeDisplayName returns the uppercase display name for an FSM type
+func fsmTypeDisplayName(t fsm.Type) string {
+	switch t {
+	case fsm.TypeDFA:
+		return DisplayTypeDFA
+	case fsm.TypeNFA:
+		return DisplayTypeNFA
+	case fsm.TypeMoore:
+		return DisplayTypeMoore
+	case fsm.TypeMealy:
+		return DisplayTypeMealy
+	default:
+		return "UNKNOWN"
+	}
+}
 
 // Styles
 var (
@@ -37,8 +62,9 @@ func (ed *Editor) draw() {
 	ed.screen.Clear()
 	w, h := ed.screen.Size()
 
-	// Always draw canvas as background if we have an FSM loaded
-	if ed.fsm != nil && len(ed.states) > 0 {
+	// Draw canvas and sidebar in canvas-related modes, even if empty
+	if ed.mode == ModeCanvas || ed.mode == ModeMove || 
+	   (ed.fsm != nil && len(ed.states) > 0) {
 		ed.drawCanvas(w, h)
 		ed.drawSidebar(w, h)
 	}
@@ -53,6 +79,7 @@ func (ed *Editor) draw() {
 	case ModeFilePicker:
 		ed.drawFilePicker(w, h)
 	case ModeSelectType:
+		ed.drawMenuOverlay(w, h)
 		ed.drawTypeSelector(w, h)
 	case ModeAddTransition:
 		ed.drawTransitionSelector(w, h)
@@ -60,6 +87,10 @@ func (ed *Editor) draw() {
 		ed.drawInputSelector(w, h)
 	case ModeSelectOutput:
 		ed.drawOutputSelector(w, h)
+	case ModeHelp:
+		ed.drawCanvas(w, h)
+		ed.drawSidebar(w, h)
+		ed.drawHelpOverlay(w, h)
 	}
 
 	ed.drawStatusBar(w, h)
@@ -212,6 +243,30 @@ func (ed *Editor) drawTransitions(canvasW, canvasH int) {
 		lineStyle = styleTransDrag
 	}
 
+	// Check if we're flashing an input (no time limit - cleared by other actions)
+	flashingInput := ed.flashInput
+
+	// Check if we're flashing an output
+	flashingOutput := ed.flashOutput
+
+	// Check if we're flashing a specific transition
+	flashingTransIdx := ed.flashTransIdx
+
+	// Flash styles - alternate between bright white and bright blue
+	flashStyleWhite := tcell.StyleDefault.Foreground(tcell.ColorWhite).Bold(true)
+	flashStyleBlue := tcell.StyleDefault.Foreground(tcell.ColorBlue).Bold(true)
+
+	// Determine which flash style to use based on current blink phase
+	now := time.Now().UnixMilli()
+	getFlashStyle := func(startTime int64) tcell.Style {
+		elapsed := now - startTime
+		// Alternate every 200ms between white and blue
+		if (elapsed/200)%2 == 0 {
+			return flashStyleWhite
+		}
+		return flashStyleBlue
+	}
+
 	// Count transitions between each pair of states for offset calculation
 	// Key: "from->to" or "to->from" (normalized), Value: count seen so far
 	pairCount := make(map[string]int)
@@ -230,7 +285,7 @@ func (ed *Editor) drawTransitions(canvasW, canvasH int) {
 	}
 
 	// Draw each transition
-	for _, t := range ed.fsm.Transitions {
+	for tIdx, t := range ed.fsm.Transitions {
 		fromSP, ok1 := statePos[t.From]
 		if !ok1 {
 			continue
@@ -259,9 +314,19 @@ func (ed *Editor) drawTransitions(canvasW, canvasH int) {
 				label += "/" + *t.Output
 			}
 
+			// Determine style - flash if this transition matches any flash criteria
+			arcStyle := lineStyle
+			if flashingInput != "" && t.Input != nil && *t.Input == flashingInput {
+				arcStyle = getFlashStyle(ed.flashInputTime)
+			} else if flashingOutput != "" && t.Output != nil && *t.Output == flashingOutput {
+				arcStyle = getFlashStyle(ed.flashOutputTime)
+			} else if flashingTransIdx == tIdx {
+				arcStyle = getFlashStyle(ed.flashTransTime)
+			}
+
 			// Self-loop
 			if t.From == to {
-				ed.drawSelfLoop(fromX, fromY-1, label, canvasW, canvasH, lineStyle)
+				ed.drawSelfLoop(fromX, fromY-1, label, canvasW, canvasH, arcStyle)
 				continue
 			}
 
@@ -281,7 +346,7 @@ func (ed *Editor) drawTransitions(canvasW, canvasH int) {
 			}
 
 			// Draw the arc with offset
-			ed.drawArcWithOffset(fromX, fromY, toX, toY, label, offset, canvasW, canvasH, lineStyle)
+			ed.drawArcWithOffset(fromX, fromY, toX, toY, label, offset, canvasW, canvasH, arcStyle)
 		}
 	}
 }
@@ -295,37 +360,43 @@ func normalizePairKey(a, b string) string {
 }
 
 func (ed *Editor) drawSelfLoop(x, y int, label string, canvasW, canvasH int, style tcell.Style) {
-	// Draw a small loop above the state
-	//  ╭─╮
-	//  │a│
-	//  ╰─╯
-	if y < 1 || x < 1 || x >= canvasW-3 {
+	// Draw a loop above the state with label to the right
+	//  ╭──╮
+	//  ╰─→╯ label
+	if y < 2 || x < 1 || x >= canvasW-6 {
 		return
 	}
 	
-	// Top
-	if y-1 >= 0 {
-		ed.screen.SetContent(x-1, y-1, '╭', nil, style)
-		ed.screen.SetContent(x, y-1, '─', nil, style)
-		ed.screen.SetContent(x+1, y-1, '╮', nil, style)
+	loopY := y - 2
+	
+	// Top of loop
+	if loopY >= 0 {
+		ed.screen.SetContent(x, loopY, '╭', nil, style)
+		ed.screen.SetContent(x+1, loopY, '─', nil, style)
+		ed.screen.SetContent(x+2, loopY, '─', nil, style)
+		ed.screen.SetContent(x+3, loopY, '╮', nil, style)
 	}
-	// Sides with label
-	if y >= 0 && y < canvasH {
-		ed.screen.SetContent(x-1, y, '│', nil, style)
-		// Draw label in middle
+	
+	// Sides
+	if loopY+1 >= 0 && loopY+1 < canvasH {
+		ed.screen.SetContent(x, loopY+1, '│', nil, style)
+		ed.screen.SetContent(x+3, loopY+1, '│', nil, style)
+		
+		// Draw label to the right of the loop
+		labelX := x + 5
 		for i, r := range label {
-			if x+i < canvasW {
-				ed.screen.SetContent(x+i, y, r, nil, style)
+			if labelX+i < canvasW {
+				ed.screen.SetContent(labelX+i, loopY+1, r, nil, style)
 			}
 		}
-		if x+len(label) < canvasW {
-			ed.screen.SetContent(x+len(label), y, '│', nil, style)
-		}
 	}
-	// Bottom connects back
-	if y+1 < canvasH {
-		ed.screen.SetContent(x-1, y+1, '╰', nil, style)
-		ed.screen.SetContent(x, y+1, '→', nil, style)
+	
+	// Bottom connects back with arrow
+	if loopY+2 >= 0 && loopY+2 < canvasH {
+		ed.screen.SetContent(x, loopY+2, '╰', nil, style)
+		ed.screen.SetContent(x+1, loopY+2, '─', nil, style)
+		ed.screen.SetContent(x+2, loopY+2, '→', nil, style)
+		ed.screen.SetContent(x+3, loopY+2, '╯', nil, style)
 	}
 }
 
@@ -533,20 +604,81 @@ func (ed *Editor) drawLabel(x, y int, label string, canvasW, canvasH int, style 
 }
 
 func (ed *Editor) drawSidebar(w, h int) {
-	x := w - ed.sidebarWidth + 2
-	y := 0
-
-	// Title
-	title := fmt.Sprintf("FSM: %s", ed.fsm.Type)
-	if ed.fsm.Name != "" {
-		title = ed.fsm.Name + " (" + string(ed.fsm.Type) + ")"
+	dividerX := w - ed.sidebarWidth
+	
+	// Draw the divider line
+	dividerStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
+	if ed.sidebarDragging {
+		dividerStyle = tcell.StyleDefault.Foreground(tcell.ColorYellow)
 	}
-	ed.drawString(x, y, truncate(title, ed.sidebarWidth-4), styleSidebarH)
-	y += 2
-
-	// States
-	ed.drawString(x, y, "States:", styleSidebarH)
-	y++
+	for y := 0; y < h-2; y++ {
+		ed.screen.SetContent(dividerX, y, '│', nil, dividerStyle)
+	}
+	
+	// Draw collapse indicator at top of divider
+	if ed.sidebarCollapsed {
+		ed.screen.SetContent(dividerX, 0, '◀', nil, dividerStyle)
+	} else {
+		ed.screen.SetContent(dividerX, 0, '▶', nil, dividerStyle)
+	}
+	
+	// If collapsed, don't draw sidebar content
+	if ed.sidebarCollapsed || ed.sidebarWidth < 10 {
+		return
+	}
+	
+	contentX := dividerX + 2
+	scrollbarX := w - 1 // Rightmost column for scrollbar
+	visibleHeight := h - 4 // Leave room for title (2 lines) and status bar (2 lines)
+	
+	// Calculate total content height
+	totalHeight := 0
+	// States section: header + states + blank
+	totalHeight += 1 + len(ed.fsm.States) + 1
+	// Inputs section: header + inputs + blank  
+	totalHeight += 1 + len(ed.fsm.Alphabet) + 1
+	// Outputs section (if any): header + outputs + blank
+	if len(ed.fsm.OutputAlphabet) > 0 {
+		totalHeight += 1 + len(ed.fsm.OutputAlphabet) + 1
+	}
+	// Transitions section: header + transition lines
+	totalHeight += 1
+	for _, t := range ed.fsm.Transitions {
+		totalHeight += len(t.To)
+	}
+	
+	// Clamp scroll offset
+	maxScroll := totalHeight - visibleHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if ed.sidebarScrollY > maxScroll {
+		ed.sidebarScrollY = maxScroll
+	}
+	if ed.sidebarScrollY < 0 {
+		ed.sidebarScrollY = 0
+	}
+	
+	// Draw title (fixed, not scrolled)
+	typeName := fsmTypeDisplayName(ed.fsm.Type)
+	title := fmt.Sprintf("FSM: %s", typeName)
+	if ed.fsm.Name != "" {
+		title = ed.fsm.Name + " (" + typeName + ")"
+	}
+	ed.drawString(contentX, 0, truncate(title, ed.sidebarWidth-4), styleSidebarH)
+	
+	// Style for flashing items in sidebar - light cyan for visibility
+	styleFlashHighlight := tcell.StyleDefault.Foreground(tcell.ColorAqua).Bold(true)
+	
+	// Build content lines with their styles
+	type contentLine struct {
+		text  string
+		style tcell.Style
+	}
+	var lines []contentLine
+	
+	// States section
+	lines = append(lines, contentLine{"States:", styleSidebarH})
 	for i, s := range ed.fsm.States {
 		prefix := "  "
 		suffix := ""
@@ -560,36 +692,37 @@ func (ed *Editor) drawSidebar(w, h int) {
 		if i == ed.selectedState {
 			style = styleMenuSel
 		}
-		line := truncate(prefix+s+suffix, ed.sidebarWidth-4)
-		ed.drawString(x, y, line, style)
-		y++
+		lines = append(lines, contentLine{truncate(prefix+s+suffix, ed.sidebarWidth-4), style})
 	}
-	y++
-
-	// Inputs
-	ed.drawString(x, y, "Inputs:", styleSidebarH)
-	y++
+	lines = append(lines, contentLine{"", styleSidebar}) // blank line
+	
+	// Inputs section
+	lines = append(lines, contentLine{"Inputs:", styleSidebarH})
 	for _, inp := range ed.fsm.Alphabet {
-		ed.drawString(x, y, "  "+truncate(inp, ed.sidebarWidth-6), styleSidebar)
-		y++
-	}
-	y++
-
-	// Outputs (if applicable)
-	if len(ed.fsm.OutputAlphabet) > 0 {
-		ed.drawString(x, y, "Outputs:", styleSidebarH)
-		y++
-		for _, out := range ed.fsm.OutputAlphabet {
-			ed.drawString(x, y, "  "+truncate(out, ed.sidebarWidth-6), styleSidebar)
-			y++
+		style := styleSidebar
+		if ed.flashInput == inp {
+			style = styleFlashHighlight
 		}
-		y++
+		lines = append(lines, contentLine{"  " + truncate(inp, ed.sidebarWidth-6), style})
 	}
-
-	// Transitions
-	ed.drawString(x, y, "Transitions:", styleSidebarH)
-	y++
-	for _, t := range ed.fsm.Transitions {
+	lines = append(lines, contentLine{"", styleSidebar}) // blank line
+	
+	// Outputs section
+	if len(ed.fsm.OutputAlphabet) > 0 {
+		lines = append(lines, contentLine{"Outputs:", styleSidebarH})
+		for _, out := range ed.fsm.OutputAlphabet {
+			style := styleSidebar
+			if ed.flashOutput == out {
+				style = styleFlashHighlight
+			}
+			lines = append(lines, contentLine{"  " + truncate(out, ed.sidebarWidth-6), style})
+		}
+		lines = append(lines, contentLine{"", styleSidebar}) // blank line
+	}
+	
+	// Transitions section
+	lines = append(lines, contentLine{"Transitions:", styleSidebarH})
+	for tIdx, t := range ed.fsm.Transitions {
 		inp := "ε"
 		if t.Input != nil {
 			inp = *t.Input
@@ -599,11 +732,49 @@ func (ed *Editor) drawSidebar(w, h int) {
 			if ed.fsm.Type == fsm.TypeMealy && t.Output != nil {
 				line += " [" + *t.Output + "]"
 			}
-			ed.drawString(x, y, truncate(line, ed.sidebarWidth-4), styleSidebar)
-			y++
-			if y >= h-3 {
-				ed.drawString(x, y, "  ...", styleSidebar)
-				return
+			style := styleSidebar
+			if ed.flashTransIdx == tIdx {
+				style = styleFlashHighlight
+			}
+			lines = append(lines, contentLine{truncate(line, ed.sidebarWidth-4), style})
+		}
+	}
+	
+	// Draw visible content (starting at y=2, after title)
+	startY := 2
+	for i := 0; i < visibleHeight && i+ed.sidebarScrollY < len(lines); i++ {
+		lineIdx := i + ed.sidebarScrollY
+		ed.drawString(contentX, startY+i, lines[lineIdx].text, lines[lineIdx].style)
+	}
+	
+	// Draw scrollbar if content exceeds visible area
+	if totalHeight > visibleHeight {
+		scrollTrackStart := startY
+		scrollTrackHeight := visibleHeight
+		
+		// Calculate thumb size and position
+		thumbHeight := (visibleHeight * visibleHeight) / totalHeight
+		if thumbHeight < 1 {
+			thumbHeight = 1
+		}
+		if thumbHeight > scrollTrackHeight {
+			thumbHeight = scrollTrackHeight
+		}
+		
+		thumbPos := scrollTrackStart
+		if maxScroll > 0 {
+			thumbPos = scrollTrackStart + (ed.sidebarScrollY * (scrollTrackHeight - thumbHeight)) / maxScroll
+		}
+		
+		// Draw track
+		trackStyle := tcell.StyleDefault.Foreground(tcell.ColorGray)
+		thumbStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorGray)
+		
+		for y := scrollTrackStart; y < scrollTrackStart+scrollTrackHeight; y++ {
+			if y >= thumbPos && y < thumbPos+thumbHeight {
+				ed.screen.SetContent(scrollbarX, y, '█', nil, thumbStyle)
+			} else {
+				ed.screen.SetContent(scrollbarX, y, '░', nil, trackStyle)
 			}
 		}
 	}
@@ -637,13 +808,45 @@ func (ed *Editor) drawStatusBar(w, h int) {
 
 	// Message
 	if ed.message != "" {
-		style := styleMsgInfo
+		// Determine base style for message type
+		baseStyle := styleMsgInfo
+		shouldFlash := false
 		switch ed.messageType {
 		case MsgError:
-			style = styleMsgError
+			baseStyle = styleMsgError
+			shouldFlash = true
 		case MsgSuccess:
-			style = styleMsgSuccess
+			baseStyle = styleMsgSuccess
+			shouldFlash = true
+		case MsgWarning:
+			baseStyle = styleMsgError // Use error style for warnings too
+			shouldFlash = true
+		case MsgInfo:
+			baseStyle = styleMsgInfo
+			shouldFlash = false
 		}
+		
+		// Start with base style (defensive: ensures normal display after flash)
+		style := baseStyle
+		
+		// Flash effect for first 500ms: alternate colours every 125ms (4 flashes)
+		// Pattern: normal(0-125) -> inverted(125-250) -> normal(250-375) -> inverted(375-500) -> normal(500+)
+		if shouldFlash && ed.messageFlashStart > 0 {
+			elapsed := time.Now().UnixMilli() - ed.messageFlashStart
+			if elapsed >= 0 && elapsed < 500 {
+				// Determine which phase of the flash we're in
+				// Phases at 125ms intervals: 0=normal, 1=inverted, 2=normal, 3=inverted
+				phaseNum := elapsed / 125
+				if phaseNum == 1 || phaseNum == 3 {
+					// Inverted colours for flash
+					fg, bg, _ := baseStyle.Decompose()
+					style = tcell.StyleDefault.Foreground(bg).Background(fg)
+				}
+				// phaseNum 0, 2, or >=4: style remains baseStyle (normal)
+			}
+			// elapsed < 0 or >= 500: style remains baseStyle (normal)
+		}
+		
 		ed.drawString(w-len(ed.message)-2, y, ed.message, style)
 	}
 
@@ -776,28 +979,58 @@ func (ed *Editor) drawFilePicker(w, h int) {
 }
 
 func (ed *Editor) drawTypeSelector(w, h int) {
-	types := []string{"DFA", "NFA", "Moore", "Mealy"}
-	boxW := 30
-	boxH := len(types) + 4
-	boxX := (w - boxW) / 2
-	boxY := 5
+	types := []string{DisplayTypeDFA, DisplayTypeNFA, DisplayTypeMoore, DisplayTypeMealy}
+	
+	// Position next to the main menu, aligned with the FSM Type menu item
+	// Main menu is 40 wide, centred
+	menuWidth := 40
+	menuHeight := len(ed.menuItems) + 4
+	menuX := (w - menuWidth) / 2
+	menuY := (h - menuHeight) / 2
+	if menuX < 0 {
+		menuX = 0
+	}
+	if menuY < 0 {
+		menuY = 0
+	}
+	
+	// Find which menu item is FSM Type (index 8, 0-based)
+	fsmTypeItemIndex := 8
+	itemY := menuY + 2 + fsmTypeItemIndex
+	
+	// Position type selector to the right of menu
+	boxW := 20
+	boxH := len(types) + 2
+	boxX := menuX + menuWidth + 1
+	boxY := itemY - 1
+	
+	// If it would go off screen, position it differently
+	if boxX + boxW > w - 1 {
+		boxX = menuX - boxW - 1
+		if boxX < 0 {
+			boxX = menuX + menuWidth/2 - boxW/2
+			boxY = menuY + menuHeight + 1
+		}
+	}
 
 	ed.drawBox(boxX, boxY, boxW, boxH, styleDefault)
-	ed.drawString(boxX+2, boxY+1, "Select FSM Type:", styleSidebarH)
 
+	// Interior width is boxW - 2 (for left and right borders)
+	interiorW := boxW - 2
 	for i, t := range types {
 		style := styleMenu
-		if i == ed.menuSelected {
+		if i == ed.typeMenuSelected {
 			style = styleMenuSel
 		}
-		line := fmt.Sprintf(" %-26s", t)
-		ed.drawString(boxX+2, boxY+3+i, line, style)
+		// Pad to fill exact interior width
+		line := fmt.Sprintf(" %-*s", interiorW-1, t)
+		ed.drawString(boxX+1, boxY+1+i, line, style)
 	}
 }
 
 func (ed *Editor) drawTransitionSelector(w, h int) {
 	boxW := 35
-	boxH := len(ed.fsm.States) + 4
+	boxH := len(ed.validTargets) + 4
 	if boxH > h-4 {
 		boxH = h - 4
 	}
@@ -807,7 +1040,7 @@ func (ed *Editor) drawTransitionSelector(w, h int) {
 	ed.drawBox(boxX, boxY, boxW, boxH, styleDefault)
 	ed.drawString(boxX+2, boxY+1, "Select Target State:", styleSidebarH)
 
-	for i, s := range ed.fsm.States {
+	for i, s := range ed.validTargets {
 		if i >= boxH-4 {
 			break
 		}
@@ -931,6 +1164,8 @@ func (ed *Editor) modeString() string {
 		return "SELECT INPUT"
 	case ModeSelectOutput:
 		return "SELECT OUTPUT"
+	case ModeHelp:
+		return "HELP"
 	default:
 		return ""
 	}
@@ -941,17 +1176,21 @@ func (ed *Editor) helpString() string {
 	case ModeMenu:
 		return "↑↓:Select  Enter:Confirm  Esc:Canvas"
 	case ModeCanvas:
-		return "Arrows:Move  Enter:Add State  Tab:Cycle  T:Transition  I:Input  O:Output  S:Initial  A:Accept  Del:Delete  Esc:Menu"
+		return "H:Help  Enter:Add  Tab:Cycle  T:Trans  S:Initial  A:Accept  G:Move  Del:Delete  Esc:Menu"
 	case ModeInput:
 		return "Type text  Enter:Confirm  Esc:Cancel"
 	case ModeFilePicker:
-		return "↑↓:Select  Enter:Open  Esc:Cancel"
+		return "↑↓:Select  Tab:Switch  Enter:Open  Esc:Cancel"
 	case ModeSelectType:
 		return "↑↓:Select  Enter:Confirm  Esc:Cancel"
 	case ModeAddTransition, ModeSelectInput, ModeSelectOutput:
 		return "↑↓:Select  Enter:Confirm  Esc:Cancel"
+	case ModeMove:
+		return "Arrows:Move  Enter:Confirm  Esc:Cancel"
+	case ModeHelp:
+		return "↑↓/PgUp/PgDn: Scroll   Esc/Q: Close"
 	default:
-		return "Ctrl+S:Save  Ctrl+C:Quit"
+		return "Ctrl+Z:Undo  Ctrl+Y:Redo"
 	}
 }
 
@@ -980,4 +1219,254 @@ func (ed *Editor) completeSelectOutputMoore() {
 // Override completeSelectOutput to handle Moore case
 func init() {
 	// This is handled in the main file's completeSelectOutput
+}
+
+// drawHelpOverlay displays a comprehensive help window with all keyboard shortcuts
+func (ed *Editor) drawHelpOverlay(w, h int) {
+	// Help content organised by functional groups with full descriptions
+	helpGroups := []struct {
+		title string
+		items [][2]string // key, description pairs
+	}{
+		{
+			title: "Navigation",
+			items: [][2]string{
+				{"↑ ↓ ← →", "Move the cursor around the canvas"},
+				{"Tab", "Cycle selection through states"},
+				{"Esc", "Return to main menu"},
+				{"H / ?", "Show this help screen"},
+			},
+		},
+		{
+			title: "Creating States",
+			items: [][2]string{
+				{"Enter", "Add a new state at cursor position"},
+				{"Right-click", "Add a new state at mouse position"},
+			},
+		},
+		{
+			title: "Editing States",
+			items: [][2]string{
+				{"S", "Set the selected state as the initial state"},
+				{"A", "Toggle the selected state as an accepting state"},
+				{"M", "Set Moore output for selected state (MOORE only)"},
+				{"Del / Backspace", "Delete the selected state and its transitions"},
+				{"Double-click", "Edit the name of a state"},
+			},
+		},
+		{
+			title: "Moving States",
+			items: [][2]string{
+				{"G", "Grab selected state for keyboard movement"},
+				{"", "  Then use ↑↓←→ to move, Enter to confirm, Esc to cancel"},
+				{"Left-drag", "Drag a state to a new position with the mouse"},
+			},
+		},
+		{
+			title: "Transitions",
+			items: [][2]string{
+				{"T", "Add a transition from the selected state"},
+				{"", "  Select target state, then choose input symbol"},
+				{"I", "Add a new input symbol to the alphabet"},
+				{"O", "Add a new output symbol (MEALY/MOORE)"},
+			},
+		},
+		{
+			title: "Display Options",
+			items: [][2]string{
+				{"W", "Toggle visibility of transition arcs on the canvas"},
+				{"R", "Render the FSM to an image file and open viewer"},
+				{"\\", "Toggle sidebar collapse/expand"},
+				{"", "  Drag divider to resize, snaps at default width"},
+			},
+		},
+		{
+			title: "Validation & Analysis",
+			items: [][2]string{
+				{"V", "Validate the FSM structure (check for errors)"},
+				{"L", "Run analysis (reachability, dead states, etc.)"},
+			},
+		},
+		{
+			title: "Global Shortcuts",
+			items: [][2]string{
+				{"Ctrl+C", "Copy FSM to clipboard"},
+				{"Ctrl+V", "Paste FSM from clipboard"},
+				{"Ctrl+S", "Save the current file"},
+				{"Ctrl+Z", "Undo the last action"},
+				{"Ctrl+Y", "Redo a previously undone action"},
+			},
+		},
+		{
+			title: "Mouse Actions",
+			items: [][2]string{
+				{"Left-click", "Select a state / move cursor"},
+				{"Left-drag", "Move a state by dragging"},
+				{"Right-click", "Add a new state at mouse position"},
+				{"Double-click", "Rename a state"},
+			},
+		},
+		{
+			title: "Menu Operations",
+			items: [][2]string{
+				{"New FSM", "Create a new finite state machine"},
+				{"Open File", "Load an FSM from .fsm or .json file"},
+				{"Save / Save As", "Save the current FSM to a file"},
+				{"Renderer", "Toggle between Native and Graphviz"},
+				{"File Type", "Toggle between PNG and SVG output"},
+				{"FSM Type", "Change between DFA, NFA, MEALY, MOORE"},
+			},
+		},
+	}
+
+	// Build a flat list of lines for scrolling
+	type helpLine struct {
+		isTitle bool
+		isBlank bool
+		key     string
+		desc    string
+		title   string
+	}
+	var lines []helpLine
+
+	for i, g := range helpGroups {
+		// Group title
+		lines = append(lines, helpLine{isTitle: true, title: g.title})
+
+		// Items
+		for _, item := range g.items {
+			lines = append(lines, helpLine{key: item[0], desc: item[1]})
+		}
+
+		// Blank line between groups (except after last)
+		if i < len(helpGroups)-1 {
+			lines = append(lines, helpLine{isBlank: true})
+		}
+	}
+
+	ed.helpTotalLines = len(lines)
+
+	// Calculate dimensions - use most of the screen
+	boxWidth := w - 8
+	if boxWidth > 90 {
+		boxWidth = 90
+	}
+	if boxWidth < 50 {
+		boxWidth = w - 4
+	}
+
+	boxHeight := h - 4
+	if boxHeight < 10 {
+		boxHeight = 10
+	}
+
+	startX := (w - boxWidth) / 2
+	startY := (h - boxHeight) / 2
+	if startX < 1 {
+		startX = 1
+	}
+	if startY < 1 {
+		startY = 1
+	}
+
+	// Content area dimensions (inside the box, minus title and footer)
+	contentStartY := startY + 2
+	contentHeight := boxHeight - 5 // title bar, footer, borders
+	contentWidth := boxWidth - 4
+	keyColWidth := 18
+
+	// Adjust scroll offset bounds
+	maxScroll := len(lines) - contentHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if ed.helpScrollOffset > maxScroll {
+		ed.helpScrollOffset = maxScroll
+	}
+	if ed.helpScrollOffset < 0 {
+		ed.helpScrollOffset = 0
+	}
+
+	// Draw box with title
+	ed.drawTitledBox(startX, startY, boxWidth, boxHeight, "Help - Keyboard Shortcuts & Commands")
+
+	// Draw visible lines
+	for i := 0; i < contentHeight; i++ {
+		lineIdx := i + ed.helpScrollOffset
+		if lineIdx >= len(lines) {
+			break
+		}
+
+		y := contentStartY + i
+		line := lines[lineIdx]
+
+		if line.isBlank {
+			continue
+		}
+
+		if line.isTitle {
+			ed.drawString(startX+2, y, line.title, styleSidebarH)
+		} else if line.key == "" {
+			// Continuation line (indented description)
+			desc := line.desc
+			if len(desc) > contentWidth {
+				desc = desc[:contentWidth]
+			}
+			ed.drawString(startX+2, y, desc, styleHelp)
+		} else {
+			// Normal key + description line
+			keyStr := fmt.Sprintf("%-*s", keyColWidth, line.key)
+			if len(keyStr) > keyColWidth {
+				keyStr = keyStr[:keyColWidth]
+			}
+			ed.drawString(startX+2, y, keyStr, styleTrans)
+
+			descStart := startX + 2 + keyColWidth
+			maxDescLen := contentWidth - keyColWidth
+			desc := line.desc
+			if len(desc) > maxDescLen {
+				desc = desc[:maxDescLen]
+			}
+			ed.drawString(descStart, y, desc, styleSidebar)
+		}
+	}
+
+	// Draw scrollbar if content overflows
+	needsScroll := len(lines) > contentHeight
+	if needsScroll {
+		scrollX := startX + boxWidth - 2
+
+		// Calculate scrollbar thumb position and size
+		thumbHeight := contentHeight * contentHeight / len(lines)
+		if thumbHeight < 1 {
+			thumbHeight = 1
+		}
+
+		thumbPos := 0
+		if maxScroll > 0 {
+			thumbPos = ed.helpScrollOffset * (contentHeight - thumbHeight) / maxScroll
+		}
+
+		// Draw scroll track and thumb
+		for i := 0; i < contentHeight; i++ {
+			y := contentStartY + i
+			if i >= thumbPos && i < thumbPos+thumbHeight {
+				// Thumb
+				ed.screen.SetContent(scrollX, y, '█', nil, styleBorder)
+			} else {
+				// Track
+				ed.screen.SetContent(scrollX, y, '░', nil, styleBorder)
+			}
+		}
+	}
+
+	// Footer with scroll hint if needed
+	var footer string
+	if needsScroll {
+		footer = "↑↓/PgUp/PgDn: Scroll   Esc/Enter/Q: Close"
+	} else {
+		footer = "Press Esc, Enter, or Q to close"
+	}
+	footerX := startX + (boxWidth-len(footer))/2
+	ed.drawString(footerX, startY+boxHeight-2, footer, styleHelp)
 }

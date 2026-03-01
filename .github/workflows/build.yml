@@ -1,4 +1,4 @@
-name: Build
+name: Build & Release
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.22'
 
 jobs:
   test:
@@ -17,100 +21,180 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Run tests
-        run: go test -v -race ./...
+      - name: Vet
+        run: go vet ./...
 
-  build:
-    name: Build
+      - name: Test
+        run: go test -v -race -count=1 ./...
+
+  # ----------------------------------------------------------------
+  # Build distribution archives for each platform.
+  # Each archive contains both binaries plus docs, examples, and
+  # class libraries — everything needed to use the toolkit.
+  # ----------------------------------------------------------------
+  dist:
+    name: Dist (${{ matrix.goos }}/${{ matrix.goarch }}${{ matrix.label }})
     needs: test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-          # Linux
+          # Linux x86_64
           - goos: linux
             goarch: amd64
+            label: ''
+          # Linux ARM64 (AWS Graviton, modern ARM servers)
           - goos: linux
             goarch: arm64
+            label: ''
+          # Linux ARMv7 (Raspberry Pi 2/3/4/5 with 32-bit OS)
           - goos: linux
             goarch: arm
             goarm: '7'
-          # macOS
+            label: ' armv7'
+          # Linux ARMv6 (Raspberry Pi Zero / original Pi)
+          - goos: linux
+            goarch: arm
+            goarm: '6'
+            label: ' armv6'
+
+          # macOS Intel
           - goos: darwin
             goarch: amd64
+            label: ''
+          # macOS Apple Silicon
           - goos: darwin
             goarch: arm64
-          # Windows
+            label: ''
+
+          # Windows x86_64
           - goos: windows
             goarch: amd64
+            label: ''
+          # Windows ARM64 (Surface Pro X, etc.)
           - goos: windows
             goarch: arm64
-          # FreeBSD
+            label: ''
+
+          # FreeBSD x86_64
           - goos: freebsd
             goarch: amd64
+            label: ''
+          # FreeBSD ARM64
           - goos: freebsd
             goarch: arm64
-          # OpenBSD
+            label: ''
+
+          # OpenBSD x86_64
           - goos: openbsd
             goarch: amd64
-          - goos: openbsd
-            goarch: arm64
-          # NetBSD
+            label: ''
+
+          # NetBSD x86_64
           - goos: netbsd
             goarch: amd64
-          - goos: netbsd
-            goarch: arm64
+            label: ''
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Set binary extension
-        id: ext
+      - name: Determine version
+        id: version
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            echo "ext=.exe" >> $GITHUB_OUTPUT
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            echo "ext=" >> $GITHUB_OUTPUT
+            VERSION="$(cat VERSION)-$(git rev-parse --short HEAD)"
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build fsm
+      - name: Set archive naming
+        id: naming
+        run: |
+          ARCH="${{ matrix.goarch }}"
+          if [ "${{ matrix.goarch }}" = "arm" ] && [ -n "${{ matrix.goarm }}" ]; then
+            ARCH="armv${{ matrix.goarm }}"
+          fi
+          NAME="fsm-toolkit-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${ARCH}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "arch=$ARCH" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: '0'
         run: |
-          go build -trimpath -ldflags "-s -w" \
-            -o fsm-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }} \
-            ./cmd/fsm/
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
 
-      - name: Build fsmedit
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          GOARM: ${{ matrix.goarm }}
+          VERSION="${{ steps.version.outputs.version }}"
+          LDFLAGS="-s -w -X github.com/ha1tch/fsm-toolkit/pkg/version.Version=${VERSION}"
+
+          mkdir -p staging
+          go build -trimpath -ldflags "$LDFLAGS" \
+            -o "staging/fsm${EXT}" ./cmd/fsm/
+          go build -trimpath -ldflags "$LDFLAGS" \
+            -o "staging/fsmedit${EXT}" ./cmd/fsmedit/
+
+      - name: Assemble distribution
         run: |
-          go build -trimpath -ldflags "-s -w" \
-            -o fsmedit-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }} \
-            ./cmd/fsmedit/
+          DIST="${{ steps.naming.outputs.name }}"
+          mkdir -p "dist/${DIST}"
 
-      - name: Upload artifacts
+          # Binaries.
+          cp staging/* "dist/${DIST}/"
+
+          # Documentation.
+          for f in LICENSE README.md MANUAL.md WORKFLOWS.md SPECIFICATION.md CHANGELOG.md MACHINES.md COMPATIBILITY.md; do
+            [ -f "$f" ] && cp "$f" "dist/${DIST}/"
+          done
+          # Per-tool manuals.
+          [ -f cmd/fsm/MANUAL.md ] && cp cmd/fsm/MANUAL.md "dist/${DIST}/FSM-CLI-MANUAL.md"
+          [ -f cmd/fsmedit/MANUAL.md ] && cp cmd/fsmedit/MANUAL.md "dist/${DIST}/FSMEDIT-MANUAL.md"
+
+          # Examples and class libraries.
+          cp -r examples "dist/${DIST}/"
+          cp -r class-libraries "dist/${DIST}/"
+
+      - name: Create archive
+        run: |
+          cd dist
+          DIST="${{ steps.naming.outputs.name }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip -rq "${DIST}.zip" "${DIST}"
+            echo "ARCHIVE=${DIST}.zip" >> "$GITHUB_ENV"
+          else
+            tar -czf "${DIST}.tar.gz" "${DIST}"
+            echo "ARCHIVE=${DIST}.tar.gz" >> "$GITHUB_ENV"
+          fi
+          rm -rf "${DIST}"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            fsm-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }}
-            fsmedit-${{ matrix.goos }}-${{ matrix.goarch }}${{ steps.ext.outputs.ext }}
+          name: dist-${{ matrix.goos }}-${{ steps.naming.outputs.arch }}
+          path: dist/${{ env.ARCHIVE }}
+          retention-days: 14
 
+  # ----------------------------------------------------------------
+  # Collect all archives, generate checksums, create GitHub release.
+  # Only runs on version tags (v*).
+  # ----------------------------------------------------------------
   release:
     name: Release
-    needs: build
+    needs: dist
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -118,21 +202,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download all dist artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
-          pattern: binaries-*
+          path: release
+          pattern: dist-*
           merge-multiple: true
 
       - name: Generate checksums
         run: |
-          cd dist
-          sha256sum * > checksums.txt
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
-      - name: Create release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/*
+            release/*
           generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}

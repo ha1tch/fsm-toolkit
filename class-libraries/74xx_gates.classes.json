@@ -1,0 +1,79 @@
+{
+  "7400_quad_nand": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  },
+  "7402_quad_nor": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  },
+  "7404_hex_inverter": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  },
+  "7408_quad_and": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  },
+  "7432_quad_or": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  },
+  "7486_quad_xor": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "compatible_parts", "type": "list"}
+    ]
+  }
+}

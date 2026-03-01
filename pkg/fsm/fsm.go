@@ -26,29 +26,42 @@ type Transition struct {
 
 // FSM represents a finite state machine.
 type FSM struct {
-	Type        Type              `json:"type"`
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
-	States      []string          `json:"states"`
-	Alphabet    []string          `json:"alphabet"`
-	Initial     string            `json:"initial"`
-	Accepting   []string          `json:"accepting"`
-	Transitions []Transition      `json:"transitions"`
-	StateOutputs map[string]string `json:"state_outputs,omitempty"` // Moore
-	OutputAlphabet []string       `json:"output_alphabet,omitempty"`
+	Type           Type              `json:"type"`
+	Name           string            `json:"name,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	States         []string          `json:"states"`
+	Alphabet       []string          `json:"alphabet"`
+	Initial        string            `json:"initial"`
+	Accepting      []string          `json:"accepting"`
+	Transitions    []Transition      `json:"transitions"`
+	StateOutputs   map[string]string `json:"state_outputs,omitempty"`   // Moore
+	OutputAlphabet []string          `json:"output_alphabet,omitempty"`
+	LinkedMachines map[string]string `json:"linked_machines,omitempty"` // state -> machine name
+
+	// Class system: scoped per .fsm file.
+	Classes         map[string]*Class                    `json:"classes,omitempty"`          // class name -> definition
+	StateClasses    map[string]string                    `json:"state_classes,omitempty"`    // state name -> class name
+	StateProperties map[string]map[string]interface{}    `json:"state_properties,omitempty"` // state name -> property name -> value
 }
 
 // New creates a new FSM with the given type.
 func New(t Type) *FSM {
-	return &FSM{
-		Type:         t,
-		States:       make([]string, 0),
-		Alphabet:     make([]string, 0),
-		Accepting:    make([]string, 0),
-		Transitions:  make([]Transition, 0),
-		StateOutputs: make(map[string]string),
-		OutputAlphabet: make([]string, 0),
+	f := &FSM{
+		Type:            t,
+		States:          make([]string, 0),
+		Alphabet:        make([]string, 0),
+		Accepting:       make([]string, 0),
+		Transitions:     make([]Transition, 0),
+		StateOutputs:    make(map[string]string),
+		OutputAlphabet:  make([]string, 0),
+		LinkedMachines:  make(map[string]string),
+		Classes:         make(map[string]*Class),
+		StateClasses:    make(map[string]string),
+		StateProperties: make(map[string]map[string]interface{}),
 	}
+	// Every FSM starts with the default_state class.
+	f.Classes[DefaultClassName] = NewDefaultClass()
+	return f
 }
 
 // AddState adds a state to the FSM.
@@ -59,6 +72,16 @@ func (f *FSM) AddState(name string) {
 		}
 	}
 	f.States = append(f.States, name)
+}
+
+// HasState returns true if the FSM has a state with the given name.
+func (f *FSM) HasState(name string) bool {
+	for _, s := range f.States {
+		if s == name {
+			return true
+		}
+	}
+	return false
 }
 
 // AddInput adds an input symbol to the alphabet.
@@ -534,4 +557,50 @@ func (f *FSM) UnusedOutputs() []string {
 		}
 	}
 	return unused
+}
+
+// IsLinked returns true if the state delegates to another machine.
+func (f *FSM) IsLinked(state string) bool {
+	if f.LinkedMachines == nil {
+		return false
+	}
+	_, ok := f.LinkedMachines[state]
+	return ok
+}
+
+// GetLinkedMachine returns the machine name a state is linked to, or empty string.
+func (f *FSM) GetLinkedMachine(state string) string {
+	if f.LinkedMachines == nil {
+		return ""
+	}
+	return f.LinkedMachines[state]
+}
+
+// SetLinkedMachine links a state to another machine. Use empty string to unlink.
+func (f *FSM) SetLinkedMachine(state, machine string) {
+	if f.LinkedMachines == nil {
+		f.LinkedMachines = make(map[string]string)
+	}
+	if machine == "" {
+		delete(f.LinkedMachines, state)
+	} else {
+		f.LinkedMachines[state] = machine
+	}
+}
+
+// LinkedStates returns all states that are linked to other machines.
+func (f *FSM) LinkedStates() []string {
+	if f.LinkedMachines == nil {
+		return nil
+	}
+	var linked []string
+	for state := range f.LinkedMachines {
+		linked = append(linked, state)
+	}
+	return linked
+}
+
+// HasLinkedStates returns true if any states are linked.
+func (f *FSM) HasLinkedStates() bool {
+	return len(f.LinkedMachines) > 0
 }

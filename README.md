@@ -1,119 +1,41 @@
 # FSM Toolkit
 
-A compact binary format for finite state machines with converters, visualisation, code generation, interactive runner, and visual editor.
+A toolkit for finite state machines: create, convert, render, analyse, validate, execute, and generate code. Includes a terminal-based visual editor with canvas editing, bundle composition, a class/property system, and component libraries.
 
-Supports DFA, NFA, Moore, and Mealy machines. Up to 65K states, 65K inputs, 65K outputs.
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [MANUAL.md](MANUAL.md) | Complete user guide |
-| [SPECIFICATION.md](SPECIFICATION.md) | Formal semantic guarantees |
-| [COMPATIBILITY.md](COMPATIBILITY.md) | Version stability promises |
+Supports DFA, NFA, Moore, and Mealy machines. Up to 65K states, 65K inputs, 65K outputs. Zero external dependencies at runtime (Graphviz optional for rendering).
 
 ## Quick Start
 
 ```bash
-# Build (creates bin/fsm and bin/fsmedit)
-./build.sh
-
-# Or build manually
+# Build
 go build -o fsm ./cmd/fsm/
 go build -o fsmedit ./cmd/fsmedit/
 
-# Convert JSON to .fsm
-./bin/fsm convert examples/beatles.json -o beatles.fsm
-
-# Generate images directly
-./bin/fsm png beatles.fsm
-./bin/fsm svg beatles.fsm -o diagram.svg
-
-# Or open in system viewer
-./bin/fsm view beatles.fsm
+# Convert, render, run
+fsm convert examples/traffic_light.fsm -o traffic.json --pretty
+fsm png traffic_light.fsm --native
+fsm run traffic_light.fsm
 
 # Generate code
-./bin/fsm generate beatles.fsm --lang c -o beatles.h
-./bin/fsm generate beatles.fsm --lang rust -o beatles.rs
-./bin/fsm generate beatles.fsm --lang go -o beatles.go
-
-# Analyse for issues
-./bin/fsm analyse beatles.fsm
-
-# Run interactively
-./bin/fsm run beatles.fsm
+fsm generate traffic_light.fsm --lang c -o traffic.h
+fsm generate traffic_light.fsm --lang rust -o traffic.rs
+fsm generate traffic_light.fsm --lang go -o traffic.go
 
 # Visual editor
-./bin/fsmedit beatles.fsm
+fsmedit traffic_light.fsm
 ```
 
-## File Format
+Pre-built binaries for Linux, macOS, Windows, FreeBSD, and other platforms are available on the [releases page](https://github.com/ha1tch/fsm-toolkit/releases).
 
-A `.fsm` file is a ZIP containing:
+## What It Does
 
-```
-example.fsm
-├── machine.hex      # required: hex records
-├── labels.toml      # optional: human-readable names
-└── layout.toml      # optional: visual positions (fsmedit)
-```
+**fsm** is a command-line tool with 14 commands: convert between JSON/hex/FSM formats, render to PNG/SVG (via Graphviz or built-in native renderers), generate standalone code in C/Rust/Go, validate structure, analyse design quality, run interactively with full execution trace, and manage bundles of linked machines. See the [CLI manual](cmd/fsm/MANUAL.md) for the full reference.
 
-Each hex record: `TYPE SSSS:IIII TTTT:OOOO` (20 hex chars)
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `fsm convert` | Convert between json/hex/fsm |
-| `fsm dot` | Generate Graphviz DOT |
-| `fsm png` | Generate PNG image |
-| `fsm svg` | Generate SVG image |
-| `fsm generate` | Generate code (C, Rust, Go/TinyGo) |
-| `fsm info` | Show FSM information |
-| `fsm analyse` | Analyse for potential issues |
-| `fsm validate` | Validate FSM structure |
-| `fsm run` | Interactive execution |
-| `fsm view` | Visualise (generates PNG, opens viewer) |
-| `fsm edit` | Open visual editor (invokes fsmedit) |
-
-## Python Scripts
-
-| Script | Description |
-|--------|-------------|
-| `fsm_converter.py` | Format conversion |
-| `fsm_visualise.py` | DOT generation |
-| `elevator_fsm.py` | Sample generator |
-
-## Structure
-
-```
-fsm-toolkit/
-├── cmd/fsm/         # CLI tool
-├── cmd/fsmedit/     # Visual editor
-├── pkg/fsm/         # Core FSM types + runner
-├── pkg/fsmfile/     # File format handling
-├── *.py             # Python scripts
-└── examples/        # Sample FSMs
-```
-
-## Platform Notes
-
-### Windows
-
-**fsm** (CLI): Should work in most environments.
-
-**fsmedit** (TUI editor): Not tested on Windows. Likely to have rendering issues or outright fail in CMD.EXE and PowerShell. Windows Terminal may or may not work — use at your own risk.
-
-**Recommended**: Windows users should run fsmedit under WSL2 with a proper Linux terminal emulator.
-
-### Unix-like Systems
-
-Linux, macOS, FreeBSD, OpenBSD, and NetBSD should all work correctly with any modern terminal emulator.
-
-## Example: Interactive Run
+**fsmedit** is a terminal-based visual editor with keyboard and mouse support, canvas panning with minimap, undo/redo, a class system with seven property types, a component drawer for rapid instantiation from class libraries, and hierarchical bundle composition with linked-state navigation. See the [editor manual](cmd/fsmedit/MANUAL.md) for the full reference.
 
 ```
 $ fsm run traffic_light.fsm
+FSM: Traffic Light (moore)
 State: green -> go
 > timer
 Output: caution
@@ -121,13 +43,38 @@ State: yellow -> caution
 > timer
 Output: stop
 State: red -> stop
-> history
-  1: green --timer--> yellow [caution]
-  2: yellow --timer--> red [stop]
 ```
+
+## File Format
+
+A `.fsm` file is a ZIP archive containing hex-encoded machine data, optional human-readable labels, and optional editor layout. The hex format uses 20-character records (`TYPE SSSS:IIII TTTT:OOOO`) with four 16-bit fields. JSON is supported as an interchange format. Bundles pack multiple machines into a single `.fsm` file with linked-state delegation between them.
+
+See [SPECIFICATION.md](SPECIFICATION.md) for the full format definition and [MACHINES.md](MACHINES.md) for the bundle and linked-state protocol.
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [Workflows](WORKFLOWS.md) | How the tools fit together: design, validate, test, render, generate, bundle, automate |
+| [CLI Manual](cmd/fsm/MANUAL.md) | All 14 commands, options, formats, correctness model, code generation, bundles |
+| [Editor Manual](cmd/fsmedit/MANUAL.md) | Canvas editing, modes, bundles, class system, component drawer, key/mouse reference |
+| [SPECIFICATION.md](SPECIFICATION.md) | Hex record format, validation semantics, formal guarantees |
+| [MACHINES.md](MACHINES.md) | Linked states, delegation protocol, bundle structure |
+| [COMPATIBILITY.md](COMPATIBILITY.md) | Version stability promises, forward/backward compatibility rules |
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
+
+## Platform Support
+
+**fsm** (CLI) works on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD. Pre-built binaries are available for all major architectures including ARM (Raspberry Pi).
+
+**fsmedit** (editor) works in any modern terminal emulator on Unix-like systems. On Windows, use WSL2 with Windows Terminal — native CMD.EXE and PowerShell are not supported.
+
+## Go Packages
+
+The toolkit's core is available as importable Go libraries: `pkg/fsm` (types, validation, analysis, Runner, BundleRunner), `pkg/fsmfile` (format I/O, native renderers, Sugiyama layout), and `pkg/codegen` (C/Rust/Go code generation). See the [documentation index](MANUAL.md) for API details.
 
 ## License
 
-Apache 2.0 — see https://www.apache.org/licenses/LICENSE-2.0
+Apache 2.0 — https://www.apache.org/licenses/LICENSE-2.0
 
-Copyright (c) 2026 haitch — h@ual.fi
+Copyright (c) 2026 haitch — h@ual.fi — https://oldbytes.space/@haitchfive

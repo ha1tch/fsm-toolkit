@@ -1,0 +1,106 @@
+{
+  "7475_quad_latch": {
+    "properties": [
+      {"name": "latch_count", "type": "int64"},
+      {"name": "transparent", "type": "bool"},
+      {"name": "enable_pairs", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74373_octal_latch": {
+    "properties": [
+      {"name": "latch_count", "type": "int64"},
+      {"name": "transparent", "type": "bool"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "has_output_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74374_octal_d_register": {
+    "properties": [
+      {"name": "register_count", "type": "int64"},
+      {"name": "trigger", "type": "[40]string"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "has_output_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74173_quad_d_register": {
+    "properties": [
+      {"name": "register_count", "type": "int64"},
+      {"name": "trigger", "type": "[40]string"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "has_output_enable", "type": "bool"},
+      {"name": "has_data_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74194_4bit_shift_register": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "directions", "type": "list"},
+      {"name": "has_parallel_load", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "mode_select_bits", "type": "int64"},
+      {"name": "modes", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74195_4bit_shift_register_parallel": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "has_parallel_load", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "has_complementary_output", "type": "bool"},
+      {"name": "serial_inputs", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74189_64bit_ram": {
+    "properties": [
+      {"name": "word_count", "type": "int64"},
+      {"name": "word_width", "type": "int64"},
+      {"name": "total_bits", "type": "int64"},
+      {"name": "address_lines", "type": "int64"},
+      {"name": "output_inverted", "type": "bool"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74170_4x4_register_file": {
+    "properties": [
+      {"name": "word_count", "type": "int64"},
+      {"name": "word_width", "type": "int64"},
+      {"name": "read_address_lines", "type": "int64"},
+      {"name": "write_address_lines", "type": "int64"},
+      {"name": "simultaneous_rw", "type": "bool"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

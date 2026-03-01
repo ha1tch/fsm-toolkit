@@ -1,0 +1,135 @@
+{
+  "74147_10to4_priority_encoder": {
+    "properties": [
+      {"name": "input_count", "type": "int64"},
+      {"name": "output_lines", "type": "int64"},
+      {"name": "input_active_low", "type": "bool"},
+      {"name": "output_active_low", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74148_8to3_priority_encoder": {
+    "properties": [
+      {"name": "input_count", "type": "int64"},
+      {"name": "output_lines", "type": "int64"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "has_group_signal", "type": "bool"},
+      {"name": "cascadable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7447_bcd_to_7seg_decoder": {
+    "properties": [
+      {"name": "input_lines", "type": "int64"},
+      {"name": "output_segments", "type": "int64"},
+      {"name": "output_active_low", "type": "bool"},
+      {"name": "has_lamp_test", "type": "bool"},
+      {"name": "has_blanking", "type": "bool"},
+      {"name": "has_rbi", "type": "bool"},
+      {"name": "segment_names", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7448_bcd_to_7seg_decoder_internal_pullup": {
+    "properties": [
+      {"name": "input_lines", "type": "int64"},
+      {"name": "output_segments", "type": "int64"},
+      {"name": "output_active_high", "type": "bool"},
+      {"name": "has_lamp_test", "type": "bool"},
+      {"name": "has_blanking", "type": "bool"},
+      {"name": "has_rbi", "type": "bool"},
+      {"name": "segment_names", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7414_hex_schmitt_inverter": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "hysteresis", "type": "bool"},
+      {"name": "threshold_positive_v", "type": "float64"},
+      {"name": "threshold_negative_v", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74132_quad_schmitt_nand": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "hysteresis", "type": "bool"},
+      {"name": "threshold_positive_v", "type": "float64"},
+      {"name": "threshold_negative_v", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74121_monostable": {
+    "properties": [
+      {"name": "trigger_inputs", "type": "list"},
+      {"name": "retriggerable", "type": "bool"},
+      {"name": "has_complement_output", "type": "bool"},
+      {"name": "external_rc", "type": "bool"},
+      {"name": "internal_resistor_kohm", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74123_dual_monostable": {
+    "properties": [
+      {"name": "monostable_count", "type": "int64"},
+      {"name": "trigger_inputs", "type": "list"},
+      {"name": "retriggerable", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "has_complement_output", "type": "bool"},
+      {"name": "external_rc", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7401_quad_nand_oc": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "requires_pullup", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7403_quad_nand_oc": {
+    "properties": [
+      {"name": "gate_count", "type": "int64"},
+      {"name": "inputs_per_gate", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "logic_function", "type": "[40]string"},
+      {"name": "requires_pullup", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

@@ -58,6 +58,8 @@ var (
 	colorAcceptBdr  = color.RGBA{230, 81, 0, 255}       // #e65100
 	colorBoth       = color.RGBA{227, 242, 253, 255}    // #e3f2fd
 	colorBothBdr    = color.RGBA{21, 101, 192, 255}     // #1565c0
+	colorLinked     = color.RGBA{243, 229, 245, 255}    // #f3e5f5 (light purple)
+	colorLinkedBdr  = color.RGBA{142, 36, 170, 255}     // #8e24aa (purple)
 )
 
 // renderContext holds rendering parameters including scale
@@ -505,11 +507,16 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 
 		isInitial := name == f.Initial
 		isAccepting := f.IsAccepting(name)
+		isLinked := f.IsLinked(name)
 
 		// Determine colors
 		fillColor := colorWhite
 		borderColor := colorBlack
-		if isInitial && isAccepting {
+		if isLinked {
+			// Linked states get purple regardless of other flags
+			fillColor = colorLinked
+			borderColor = colorLinkedBdr
+		} else if isInitial && isAccepting {
 			fillColor = colorBoth
 			borderColor = colorBothBdr
 		} else if isInitial {
@@ -529,16 +536,27 @@ func renderPNGInternal(f *fsm.FSM, opts PNGOptions, scale int) *image.RGBA {
 		// Draw ellipse
 		drawEllipse(ctx, x, y, stateWidth/2, stateHeight/2, fillColor, borderColor)
 
-		// Draw inner ellipse for accepting states
-		if isAccepting {
+		// Draw inner ellipse for accepting states (solid)
+		if isAccepting && !isLinked {
 			drawEllipse(ctx, x, y, stateWidth/2-4*ctx.scale, stateHeight/2-4*ctx.scale, color.Transparent, borderColor)
+		}
+		
+		// Draw dashed inner ellipse for linked states
+		if isLinked {
+			drawDashedEllipse(ctx, x, y, stateWidth/2-4*ctx.scale, stateHeight/2-4*ctx.scale, borderColor)
 		}
 
 		// Draw label
 		drawTextCentered(ctx, int(x), int(y)+int(4*ctx.scale), name, colorBlack)
 
-		// Draw Moore output
-		if f.Type == fsm.TypeMoore {
+		// Draw linked machine label below state
+		if isLinked {
+			targetMachine := f.GetLinkedMachine(name)
+			if targetMachine != "" {
+				drawTextCentered(ctx, int(x), int(y+stateHeight/2+12*ctx.scale), "→"+targetMachine, colorLinkedBdr)
+			}
+		} else if f.Type == fsm.TypeMoore {
+			// Draw Moore output
 			if output, ok := f.StateOutputs[name]; ok {
 				drawTextCentered(ctx, int(x), int(y+stateHeight/2+12*ctx.scale), "/"+output, colorGray)
 			}
@@ -579,6 +597,52 @@ func drawEllipse(ctx *renderContext, cx, cy, rx, ry float64, fill, stroke color.
 			img.Set(int(x+nx*t), int(y+ny*t), stroke)
 		}
 	}
+}
+
+// drawDashedEllipse draws a dashed ellipse outline (for linked states).
+func drawDashedEllipse(ctx *renderContext, cx, cy, rx, ry float64, stroke color.Color) {
+	img := ctx.img
+	thickness := ctx.lineWidth
+	
+	// Dash pattern: draw for dashLen, skip for gapLen
+	dashLen := 8.0 * float64(ctx.scale)
+	gapLen := 4.0 * float64(ctx.scale)
+	
+	// Calculate ellipse perimeter approximately for dash spacing
+	perimeter := 2 * math.Pi * math.Sqrt((rx*rx+ry*ry)/2)
+	angleStep := 0.005
+	
+	arcLen := 0.0
+	drawing := true
+	
+	for angle := 0.0; angle < 2*math.Pi; angle += angleStep {
+		// Approximate arc length increment
+		dx := -rx * math.Sin(angle) * angleStep
+		dy := ry * math.Cos(angle) * angleStep
+		arcLen += math.Sqrt(dx*dx + dy*dy)
+		
+		// Toggle drawing based on dash pattern
+		if drawing && arcLen > dashLen {
+			drawing = false
+			arcLen = 0
+		} else if !drawing && arcLen > gapLen {
+			drawing = true
+			arcLen = 0
+		}
+		
+		if drawing {
+			x := cx + rx*math.Cos(angle)
+			y := cy + ry*math.Sin(angle)
+			
+			// Draw with thickness
+			for t := -thickness / 2; t <= thickness/2; t += 0.5 {
+				nx := math.Cos(angle)
+				ny := math.Sin(angle)
+				img.Set(int(x+nx*t), int(y+ny*t), stroke)
+			}
+		}
+	}
+	_ = perimeter // suppress unused warning
 }
 
 // drawLine draws a line between two points with thickness from context.

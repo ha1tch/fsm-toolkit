@@ -1,0 +1,89 @@
+{
+  "74150_16to1_mux": {
+    "properties": [
+      {"name": "input_count", "type": "int64"},
+      {"name": "select_lines", "type": "int64"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "output_inverted", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74151_8to1_mux": {
+    "properties": [
+      {"name": "input_count", "type": "int64"},
+      {"name": "select_lines", "type": "int64"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "has_complement_output", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74153_dual_4to1_mux": {
+    "properties": [
+      {"name": "mux_count", "type": "int64"},
+      {"name": "input_count", "type": "int64"},
+      {"name": "select_lines", "type": "int64"},
+      {"name": "shared_select", "type": "bool"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74157_quad_2to1_mux": {
+    "properties": [
+      {"name": "mux_count", "type": "int64"},
+      {"name": "input_count", "type": "int64"},
+      {"name": "select_lines", "type": "int64"},
+      {"name": "shared_select", "type": "bool"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74138_3to8_decoder": {
+    "properties": [
+      {"name": "input_lines", "type": "int64"},
+      {"name": "output_lines", "type": "int64"},
+      {"name": "output_active_low", "type": "bool"},
+      {"name": "enable_pins", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74139_dual_2to4_decoder": {
+    "properties": [
+      {"name": "decoder_count", "type": "int64"},
+      {"name": "input_lines", "type": "int64"},
+      {"name": "output_lines", "type": "int64"},
+      {"name": "output_active_low", "type": "bool"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74154_4to16_decoder": {
+    "properties": [
+      {"name": "input_lines", "type": "int64"},
+      {"name": "output_lines", "type": "int64"},
+      {"name": "output_active_low", "type": "bool"},
+      {"name": "enable_pins", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "7483_4bit_adder": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "has_carry_in", "type": "bool"},
+      {"name": "has_carry_out", "type": "bool"},
+      {"name": "propagation_delay_ns", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74283_4bit_adder_fast": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "has_carry_in", "type": "bool"},
+      {"name": "has_carry_out", "type": "bool"},
+      {"name": "carry_lookahead", "type": "bool"},
+      {"name": "propagation_delay_ns", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7485_4bit_comparator": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "cascade_inputs", "type": "list"},
+      {"name": "outputs", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74181_4bit_alu": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "function_count", "type": "int64"},
+      {"name": "has_carry_in", "type": "bool"},
+      {"name": "has_carry_out", "type": "bool"},
+      {"name": "has_carry_generate", "type": "bool"},
+      {"name": "has_carry_propagate", "type": "bool"},
+      {"name": "has_comparator", "type": "bool"},
+      {"name": "mode_select_bits", "type": "int64"},
+      {"name": "function_select_bits", "type": "int64"},
+      {"name": "operations", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74182_carry_lookahead": {
+    "properties": [
+      {"name": "group_size", "type": "int64"},
+      {"name": "cascade_width_bits", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74180_parity_generator": {
+    "properties": [
+      {"name": "input_count", "type": "int64"},
+      {"name": "has_even_output", "type": "bool"},
+      {"name": "has_odd_output", "type": "bool"},
+      {"name": "cascade_inputs", "type": "list"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

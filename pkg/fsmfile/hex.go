@@ -23,6 +23,19 @@ const (
 	EpsilonInput uint16 = 0xFFFF
 )
 
+// State flags (used in Field2 of StateDecl records)
+const (
+	StateFlagInitial   uint16 = 0x0001
+	StateFlagAccepting uint16 = 0x0002
+	StateFlagLinked    uint16 = 0x0004
+)
+
+// Reserved inputs for linked state results
+const (
+	InputAccept uint16 = 0xFFFE // Child machine accepted
+	InputReject uint16 = 0xFFFD // Child machine rejected
+)
+
 // Record represents a single hex record.
 type Record struct {
 	Type   uint16
@@ -171,10 +184,13 @@ func FSMToRecords(f *fsm.FSM) ([]Record, map[int]string, map[int]string, map[int
 			sid := uint16(stateIdx[state])
 			var flags uint16
 			if state == f.Initial {
-				flags |= 0x1
+				flags |= StateFlagInitial
 			}
 			if f.IsAccepting(state) {
-				flags |= 0x2
+				flags |= StateFlagAccepting
+			}
+			if f.IsLinked(state) {
+				flags |= StateFlagLinked
 			}
 			var out uint16
 			if o, ok := f.StateOutputs[state]; ok {
@@ -189,14 +205,17 @@ func FSMToRecords(f *fsm.FSM) ([]Record, map[int]string, map[int]string, map[int
 			})
 		}
 	} else {
-		// Only emit state decls if flags needed
+		// Only emit state decls if flags or linked state needed
 		for _, state := range f.States {
 			var flags uint16
 			if state == f.Initial {
-				flags |= 0x1
+				flags |= StateFlagInitial
 			}
 			if f.IsAccepting(state) {
-				flags |= 0x2
+				flags |= StateFlagAccepting
+			}
+			if f.IsLinked(state) {
+				flags |= StateFlagLinked
 			}
 			if flags != 0 {
 				records = append(records, Record{
@@ -308,6 +327,7 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 	
 	var hasMealy, hasNFAMulti, hasMooreOutputs bool
 	var nfaPending *transition
+	linkedStates := make(map[int]bool)
 	
 	for _, r := range records {
 		switch r.Type {
@@ -317,11 +337,14 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 			outputVal := int(r.Field3)
 			
 			stateIDs[stateID] = true
-			if flags&0x1 != 0 {
+			if flags&StateFlagInitial != 0 {
 				initialState = stateID
 			}
-			if flags&0x2 != 0 {
+			if flags&StateFlagAccepting != 0 {
 				acceptingStates[stateID] = true
+			}
+			if flags&StateFlagLinked != 0 {
+				linkedStates[stateID] = true
 			}
 			if outputVal != 0 {
 				hasMooreOutputs = true
@@ -432,6 +455,11 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 		}
 		return fmt.Sprintf("S%d", i)
 	}
+	// Reverse lookup: name -> index
+	stateIdxByName := make(map[string]int)
+	for i := range stateIDs {
+		stateIdxByName[stateName(i)] = i
+	}
 	inputName := func(i int) string {
 		if n, ok := inputLabels[i]; ok {
 			return n
@@ -480,6 +508,22 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 		accepting = append(accepting, stateName(s))
 	}
 	f.SetAccepting(accepting)
+	
+	// Mark linked states (machine names come from labels.toml)
+	for s := range linkedStates {
+		// Set empty string as placeholder - actual machine name comes from labels
+		f.SetLinkedMachine(stateName(s), "")
+	}
+	
+	// Apply linked machine names from labels
+	if labels != nil && labels.Machines != nil {
+		for sName, machineName := range labels.Machines {
+			// Only apply if state exists and is marked as linked
+			if idx, ok := stateIdxByName[sName]; ok && linkedStates[idx] {
+				f.SetLinkedMachine(sName, machineName)
+			}
+		}
+	}
 	
 	// Set Moore outputs
 	for s, o := range stateOutputs {

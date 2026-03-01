@@ -1,0 +1,69 @@
+{
+  "7407_hex_buffer_oc": {
+    "properties": [
+      {"name": "buffer_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "max_sink_current_ma", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7417_hex_buffer_oc_hv": {
+    "properties": [
+      {"name": "buffer_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "max_output_voltage", "type": "float64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74125_quad_tristate_buffer": {
+    "properties": [
+      {"name": "buffer_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "enable_active_low", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74126_quad_tristate_buffer": {
+    "properties": [
+      {"name": "buffer_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "enable_active_high", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74244_octal_buffer": {
+    "properties": [
+      {"name": "buffer_count", "type": "int64"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "enable_pins", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74245_octal_bus_transceiver": {
+    "properties": [
+      {"name": "channel_count", "type": "int64"},
+      {"name": "bidirectional", "type": "bool"},
+      {"name": "output_type", "type": "[40]string"},
+      {"name": "direction_pin", "type": "[40]string"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

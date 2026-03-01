@@ -226,14 +226,16 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
   .state-initial { fill: #e8f5e9; stroke: #2e7d32; stroke-width: 2; }
   .state-accepting { fill: #fff3e0; stroke: #e65100; stroke-width: 2; }
   .state-both { fill: #e3f2fd; stroke: #1565c0; stroke-width: 2; }
+  .state-linked { fill: #f3e5f5; stroke: #8e24aa; stroke-width: 2; }
   .state-label { font-family: sans-serif; font-size: %dpx; text-anchor: middle; dominant-baseline: middle; }
   .transition { fill: none; stroke: #333; stroke-width: 1.5; marker-end: url(#arrowhead); }
   .transition-self { fill: none; stroke: #666; stroke-width: 1.5; marker-end: url(#arrowhead-self); }
   .trans-label { font-family: sans-serif; font-size: %dpx; fill: #333; }
   .title { font-family: sans-serif; font-size: %dpx; font-weight: bold; text-anchor: middle; }
   .moore-output { font-family: sans-serif; font-size: %dpx; fill: #666; font-style: italic; text-anchor: middle; }
+  .linked-label { font-family: sans-serif; font-size: %dpx; fill: #8e24aa; font-style: italic; text-anchor: middle; }
 </style>
-`, opts.Width, opts.Height, opts.Width, opts.Height, stateLabelSize, opts.LabelSize, opts.TitleSize, opts.LabelSize))
+`, opts.Width, opts.Height, opts.Width, opts.Height, stateLabelSize, opts.LabelSize, opts.TitleSize, opts.LabelSize, opts.LabelSize))
 
 	// Title
 	if opts.Title != "" {
@@ -328,9 +330,12 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 
 		isInitial := name == f.Initial
 		isAccepting := f.IsAccepting(name)
+		isLinked := f.IsLinked(name)
 
 		class := "state"
-		if isInitial && isAccepting {
+		if isLinked {
+			class = "state-linked"
+		} else if isInitial && isAccepting {
 			class = "state-both"
 		} else if isInitial {
 			class = "state-initial"
@@ -359,16 +364,25 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 			if rx < 4 { rx = 4 }
 			sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" class="%s"/>
 `, x-stateWidth/2, y-stateHeight/2, stateWidth, stateHeight, rx, class))
-			if isAccepting {
+			if isAccepting && !isLinked {
 				sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" class="%s" fill="none"/>
+`, x-stateWidth/2+4, y-stateHeight/2+4, stateWidth-8, stateHeight-8, math.Max(rx-2, 2), class))
+			}
+			if isLinked {
+				// Dashed inner rect for linked states
+				sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" class="%s" fill="none" stroke-dasharray="5,3"/>
 `, x-stateWidth/2+4, y-stateHeight/2+4, stateWidth-8, stateHeight-8, math.Max(rx-2, 2), class))
 			}
 
 		case ShapeRect:
 			sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" class="%s"/>
 `, x-stateWidth/2, y-stateHeight/2, stateWidth, stateHeight, class))
-			if isAccepting {
+			if isAccepting && !isLinked {
 				sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" class="%s" fill="none"/>
+`, x-stateWidth/2+4, y-stateHeight/2+4, stateWidth-8, stateHeight-8, class))
+			}
+			if isLinked {
+				sb.WriteString(fmt.Sprintf(`<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" class="%s" fill="none" stroke-dasharray="5,3"/>
 `, x-stateWidth/2+4, y-stateHeight/2+4, stateWidth-8, stateHeight-8, class))
 			}
 
@@ -377,8 +391,12 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 			ry := stateHeight / 2
 			sb.WriteString(fmt.Sprintf(`<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" class="%s"/>
 `, x, y, rx, ry, class))
-			if isAccepting {
+			if isAccepting && !isLinked {
 				sb.WriteString(fmt.Sprintf(`<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" class="%s" fill="none"/>
+`, x, y, rx-4, ry-4, class))
+			}
+			if isLinked {
+				sb.WriteString(fmt.Sprintf(`<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" class="%s" fill="none" stroke-dasharray="5,3"/>
 `, x, y, rx-4, ry-4, class))
 			}
 
@@ -391,7 +409,7 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 				x-stateWidth/2, y)           // left
 			sb.WriteString(fmt.Sprintf(`<polygon points="%s" class="%s"/>
 `, points, class))
-			if isAccepting {
+			if isAccepting && !isLinked {
 				innerW := stateWidth - 12
 				innerH := stateHeight - 12
 				points2 := fmt.Sprintf("%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f",
@@ -399,12 +417,24 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 				sb.WriteString(fmt.Sprintf(`<polygon points="%s" class="%s" fill="none"/>
 `, points2, class))
 			}
+			if isLinked {
+				innerW := stateWidth - 12
+				innerH := stateHeight - 12
+				points2 := fmt.Sprintf("%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f",
+					x, y-innerH/2, x+innerW/2, y, x, y+innerH/2, x-innerW/2, y)
+				sb.WriteString(fmt.Sprintf(`<polygon points="%s" class="%s" fill="none" stroke-dasharray="5,3"/>
+`, points2, class))
+			}
 
 		default: // ShapeCircle
 			sb.WriteString(fmt.Sprintf(`<circle cx="%.1f" cy="%.1f" r="%.1f" class="%s"/>
 `, x, y, scaledRadius, class))
-			if isAccepting {
+			if isAccepting && !isLinked {
 				sb.WriteString(fmt.Sprintf(`<circle cx="%.1f" cy="%.1f" r="%.1f" class="%s" fill="none"/>
+`, x, y, scaledRadius-4, class))
+			}
+			if isLinked {
+				sb.WriteString(fmt.Sprintf(`<circle cx="%.1f" cy="%.1f" r="%.1f" class="%s" fill="none" stroke-dasharray="5,3"/>
 `, x, y, scaledRadius-4, class))
 			}
 		}
@@ -413,8 +443,15 @@ func GenerateSVGNative(f *fsm.FSM, opts SVGOptions) string {
 		sb.WriteString(fmt.Sprintf(`<text x="%.1f" y="%.1f" class="state-label">%s</text>
 `, x, y, html.EscapeString(name)))
 
-		// Moore output below state
-		if f.Type == fsm.TypeMoore {
+		// Linked machine label below state
+		if isLinked {
+			targetMachine := f.GetLinkedMachine(name)
+			if targetMachine != "" {
+				sb.WriteString(fmt.Sprintf(`<text x="%.1f" y="%.1f" class="linked-label">→%s</text>
+`, x, y+stateHeight/2+15, html.EscapeString(targetMachine)))
+			}
+		} else if f.Type == fsm.TypeMoore {
+			// Moore output below state
 			if output, ok := f.StateOutputs[name]; ok && output != "" {
 				sb.WriteString(fmt.Sprintf(`<text x="%.1f" y="%.1f" class="moore-output">%s</text>
 `, x, y+stateHeight/2+15, html.EscapeString(output)))

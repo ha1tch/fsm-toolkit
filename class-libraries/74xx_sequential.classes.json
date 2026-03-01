@@ -1,0 +1,75 @@
+{
+  "7474_dual_d_flipflop": {
+    "properties": [
+      {"name": "flipflop_count", "type": "int64"},
+      {"name": "trigger", "type": "[40]string"},
+      {"name": "has_preset", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7476_dual_jk_flipflop": {
+    "properties": [
+      {"name": "flipflop_count", "type": "int64"},
+      {"name": "trigger", "type": "[40]string"},
+      {"name": "has_preset", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "7490_decade_counter": {
+    "properties": [
+      {"name": "count_modulus", "type": "int64"},
+      {"name": "has_reset", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "state_sequence", "type": "list"}
+    ]
+  },
+  "7493_4bit_counter": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "count_modulus", "type": "int64"},
+      {"name": "has_reset", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"},
+      {"name": "state_sequence", "type": "list"}
+    ]
+  },
+  "74161_sync_4bit_counter": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "count_modulus", "type": "int64"},
+      {"name": "has_load", "type": "bool"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "has_enable", "type": "bool"},
+      {"name": "has_carry_out", "type": "bool"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  },
+  "74164_8bit_shift_register": {
+    "properties": [
+      {"name": "bit_width", "type": "int64"},
+      {"name": "direction", "type": "[40]string"},
+      {"name": "has_clear", "type": "bool"},
+      {"name": "serial_inputs", "type": "int64"},
+      {"name": "package", "type": "[40]string"},
+      {"name": "vcc_pin", "type": "int64"},
+      {"name": "gnd_pin", "type": "int64"},
+      {"name": "pin_names", "type": "list"}
+    ]
+  }
+}

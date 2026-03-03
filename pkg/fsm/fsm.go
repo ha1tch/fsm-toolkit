@@ -42,6 +42,13 @@ type FSM struct {
 	Classes         map[string]*Class                    `json:"classes,omitempty"`          // class name -> definition
 	StateClasses    map[string]string                    `json:"state_classes,omitempty"`    // state name -> class name
 	StateProperties map[string]map[string]interface{}    `json:"state_properties,omitempty"` // state name -> property name -> value
+
+	// Structural connectivity: nets connect ports across component instances.
+	Nets []Net `json:"nets,omitempty"`
+
+	// Vocabulary controls how concepts are labelled in user-facing output.
+	// Valid values: "fsm" (default), "circuit", "generic", or "" (auto).
+	Vocabulary string `json:"vocabulary,omitempty"`
 }
 
 // New creates a new FSM with the given type.
@@ -135,12 +142,18 @@ func (f *FSM) SetStateOutput(state, output string) {
 
 // Validate checks if the FSM is well-formed.
 func (f *FSM) Validate() error {
+	v := f.Vocab()
+	sl := strings.ToLower(v.State)
+	sl2 := strings.ToLower(v.States)
+	tl := strings.ToLower(v.Transition)
+	il := strings.ToLower(v.Input)
+
 	if len(f.States) == 0 {
-		return fmt.Errorf("FSM has no states")
+		return fmt.Errorf("FSM has no %s", sl2)
 	}
 	
 	if f.Initial == "" {
-		return fmt.Errorf("FSM has no initial state")
+		return fmt.Errorf("FSM has no %s %s", strings.ToLower(v.Initial), sl)
 	}
 	
 	// Check initial state exists
@@ -152,7 +165,7 @@ func (f *FSM) Validate() error {
 		}
 	}
 	if !found {
-		return fmt.Errorf("initial state %q not in states", f.Initial)
+		return fmt.Errorf("%s %s %q not in %s", strings.ToLower(v.Initial), sl, f.Initial, sl2)
 	}
 	
 	// Check accepting states exist
@@ -165,7 +178,7 @@ func (f *FSM) Validate() error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("accepting state %q not in states", acc)
+			return fmt.Errorf("%s %s %q not in %s", strings.ToLower(v.Accepting), sl, acc, sl2)
 		}
 	}
 	
@@ -179,7 +192,7 @@ func (f *FSM) Validate() error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("transition %d: from state %q not in states", i, t.From)
+			return fmt.Errorf("%s %d: from %s %q not in %s", tl, i, sl, t.From, sl2)
 		}
 		
 		for _, to := range t.To {
@@ -191,7 +204,7 @@ func (f *FSM) Validate() error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("transition %d: to state %q not in states", i, to)
+				return fmt.Errorf("%s %d: to %s %q not in %s", tl, i, sl, to, sl2)
 			}
 		}
 		
@@ -205,12 +218,12 @@ func (f *FSM) Validate() error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("transition %d: input %q not in alphabet", i, *t.Input)
+				return fmt.Errorf("%s %d: %s %q not in %s", tl, i, il, *t.Input, strings.ToLower(v.Alphabet))
 			}
 		} else {
 			// Epsilon transition - only valid for NFA
 			if f.Type == TypeDFA {
-				return fmt.Errorf("transition %d: epsilon transitions not allowed in DFA", i)
+				return fmt.Errorf("%s %d: epsilon %ss not allowed in DFA", tl, i, tl)
 			}
 		}
 
@@ -224,7 +237,7 @@ func (f *FSM) Validate() error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("transition %d: output %q not in output alphabet", i, *t.Output)
+				return fmt.Errorf("%s %d: output %q not in output alphabet", tl, i, *t.Output)
 			}
 		}
 	}
@@ -240,7 +253,7 @@ func (f *FSM) Validate() error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("state %q: output %q not in output alphabet", state, output)
+				return fmt.Errorf("%s %q: output %q not in output alphabet", sl, state, output)
 			}
 		}
 	}
@@ -335,13 +348,16 @@ type ValidationWarning struct {
 // but may indicate design problems.
 func (f *FSM) Analyse() []ValidationWarning {
 	var warnings []ValidationWarning
+	v := f.Vocab()
+	sl2 := strings.ToLower(v.States)
+	il2 := strings.ToLower(v.Input) + "(s)"
 
 	// Check for unreachable states
 	unreachable := f.UnreachableStates()
 	if len(unreachable) > 0 {
 		warnings = append(warnings, ValidationWarning{
 			Type:    "unreachable",
-			Message: fmt.Sprintf("%d state(s) not reachable from initial state", len(unreachable)),
+			Message: fmt.Sprintf("%d %s not reachable from %s %s", len(unreachable), sl2, strings.ToLower(v.Initial), strings.ToLower(v.State)),
 			States:  unreachable,
 		})
 	}
@@ -351,7 +367,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 	if len(dead) > 0 {
 		warnings = append(warnings, ValidationWarning{
 			Type:    "dead",
-			Message: fmt.Sprintf("%d state(s) have no outgoing transitions", len(dead)),
+			Message: fmt.Sprintf("%d %s have no outgoing %ss", len(dead), sl2, strings.ToLower(v.Transition)),
 			States:  dead,
 		})
 	}
@@ -362,7 +378,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 		if len(nondet) > 0 {
 			warnings = append(warnings, ValidationWarning{
 				Type:    "nondeterministic",
-				Message: fmt.Sprintf("%d state(s) have multiple transitions on same input", len(nondet)),
+				Message: fmt.Sprintf("%d %s have multiple %ss on same %s", len(nondet), sl2, strings.ToLower(v.Transition), strings.ToLower(v.Input)),
 				States:  nondet,
 			})
 		}
@@ -374,7 +390,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 		if len(incomplete) > 0 {
 			warnings = append(warnings, ValidationWarning{
 				Type:    "incomplete",
-				Message: fmt.Sprintf("%d state(s) missing transitions for some inputs", len(incomplete)),
+				Message: fmt.Sprintf("%d %s missing %ss for some %ss", len(incomplete), sl2, strings.ToLower(v.Transition), strings.ToLower(v.Input)),
 				States:  incomplete,
 			})
 		}
@@ -385,7 +401,7 @@ func (f *FSM) Analyse() []ValidationWarning {
 	if len(unusedInputs) > 0 {
 		warnings = append(warnings, ValidationWarning{
 			Type:    "unused_input",
-			Message: fmt.Sprintf("%d input(s) not used in any transition", len(unusedInputs)),
+			Message: fmt.Sprintf("%d %s not used in any %s", len(unusedInputs), il2, strings.ToLower(v.Transition)),
 			Symbols: unusedInputs,
 		})
 	}

@@ -1,75 +1,700 @@
 {
   "7474_dual_d_flipflop": {
     "properties": [
-      {"name": "flipflop_count", "type": "int64"},
-      {"name": "trigger", "type": "[40]string"},
-      {"name": "has_preset", "type": "bool"},
-      {"name": "has_clear", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "flipflop_count",
+        "type": "int64"
+      },
+      {
+        "name": "trigger",
+        "type": "[40]string"
+      },
+      {
+        "name": "has_preset",
+        "type": "bool"
+      },
+      {
+        "name": "has_clear",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1CLR_N",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "FF1"
+      },
+      {
+        "name": "1D",
+        "direction": "input",
+        "pin_number": 2,
+        "group": "FF1"
+      },
+      {
+        "name": "1CLK",
+        "direction": "input",
+        "pin_number": 3,
+        "group": "FF1"
+      },
+      {
+        "name": "1PRE_N",
+        "direction": "input",
+        "pin_number": 4,
+        "group": "FF1"
+      },
+      {
+        "name": "1Q",
+        "direction": "output",
+        "pin_number": 5,
+        "group": "FF1"
+      },
+      {
+        "name": "1Q_N",
+        "direction": "output",
+        "pin_number": 6,
+        "group": "FF1"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "2Q_N",
+        "direction": "output",
+        "pin_number": 8,
+        "group": "FF2"
+      },
+      {
+        "name": "2Q",
+        "direction": "output",
+        "pin_number": 9,
+        "group": "FF2"
+      },
+      {
+        "name": "2PRE_N",
+        "direction": "input",
+        "pin_number": 10,
+        "group": "FF2"
+      },
+      {
+        "name": "2CLK",
+        "direction": "input",
+        "pin_number": 11,
+        "group": "FF2"
+      },
+      {
+        "name": "2D",
+        "direction": "input",
+        "pin_number": 12,
+        "group": "FF2"
+      },
+      {
+        "name": "2CLR_N",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "FF2"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   },
   "7476_dual_jk_flipflop": {
     "properties": [
-      {"name": "flipflop_count", "type": "int64"},
-      {"name": "trigger", "type": "[40]string"},
-      {"name": "has_preset", "type": "bool"},
-      {"name": "has_clear", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "flipflop_count",
+        "type": "int64"
+      },
+      {
+        "name": "trigger",
+        "type": "[40]string"
+      },
+      {
+        "name": "has_preset",
+        "type": "bool"
+      },
+      {
+        "name": "has_clear",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1CLK",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "FF1"
+      },
+      {
+        "name": "1PRE_N",
+        "direction": "input",
+        "pin_number": 2,
+        "group": "FF1"
+      },
+      {
+        "name": "1CLR_N",
+        "direction": "input",
+        "pin_number": 3,
+        "group": "FF1"
+      },
+      {
+        "name": "1J",
+        "direction": "input",
+        "pin_number": 4,
+        "group": "FF1"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 5
+      },
+      {
+        "name": "2CLK",
+        "direction": "input",
+        "pin_number": 6,
+        "group": "FF2"
+      },
+      {
+        "name": "2PRE_N",
+        "direction": "input",
+        "pin_number": 7,
+        "group": "FF2"
+      },
+      {
+        "name": "2CLR_N",
+        "direction": "input",
+        "pin_number": 8,
+        "group": "FF2"
+      },
+      {
+        "name": "2J",
+        "direction": "input",
+        "pin_number": 9,
+        "group": "FF2"
+      },
+      {
+        "name": "2Q_N",
+        "direction": "output",
+        "pin_number": 10,
+        "group": "FF2"
+      },
+      {
+        "name": "2Q",
+        "direction": "output",
+        "pin_number": 11,
+        "group": "FF2"
+      },
+      {
+        "name": "2K",
+        "direction": "input",
+        "pin_number": 12,
+        "group": "FF2"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 13
+      },
+      {
+        "name": "1Q_N",
+        "direction": "output",
+        "pin_number": 14,
+        "group": "FF1"
+      },
+      {
+        "name": "1Q",
+        "direction": "output",
+        "pin_number": 15,
+        "group": "FF1"
+      },
+      {
+        "name": "1K",
+        "direction": "input",
+        "pin_number": 16,
+        "group": "FF1"
+      }
     ]
   },
   "7490_decade_counter": {
     "properties": [
-      {"name": "count_modulus", "type": "int64"},
-      {"name": "has_reset", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"},
-      {"name": "state_sequence", "type": "list"}
+      {
+        "name": "count_modulus",
+        "type": "int64"
+      },
+      {
+        "name": "has_reset",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      },
+      {
+        "name": "state_sequence",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "CKB",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "R01",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "R02",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "NC1",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 5
+      },
+      {
+        "name": "R91",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "R92",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "QC",
+        "direction": "output",
+        "pin_number": 8
+      },
+      {
+        "name": "QB",
+        "direction": "output",
+        "pin_number": 9
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 10
+      },
+      {
+        "name": "QD",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "QA",
+        "direction": "output",
+        "pin_number": 12
+      },
+      {
+        "name": "NC2",
+        "direction": "input",
+        "pin_number": 13
+      },
+      {
+        "name": "CKA",
+        "direction": "input",
+        "pin_number": 14
+      }
     ]
   },
   "7493_4bit_counter": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "count_modulus", "type": "int64"},
-      {"name": "has_reset", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"},
-      {"name": "state_sequence", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "count_modulus",
+        "type": "int64"
+      },
+      {
+        "name": "has_reset",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      },
+      {
+        "name": "state_sequence",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "CKB",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "R01",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "R02",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "NC1",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 5
+      },
+      {
+        "name": "NC2",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "NC3",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "QC",
+        "direction": "output",
+        "pin_number": 8
+      },
+      {
+        "name": "QB",
+        "direction": "output",
+        "pin_number": 9
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 10
+      },
+      {
+        "name": "QD",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "QA",
+        "direction": "output",
+        "pin_number": 12
+      },
+      {
+        "name": "NC4",
+        "direction": "input",
+        "pin_number": 13
+      },
+      {
+        "name": "CKA",
+        "direction": "input",
+        "pin_number": 14
+      }
     ]
   },
   "74161_sync_4bit_counter": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "count_modulus", "type": "int64"},
-      {"name": "has_load", "type": "bool"},
-      {"name": "has_clear", "type": "bool"},
-      {"name": "has_enable", "type": "bool"},
-      {"name": "has_carry_out", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "count_modulus",
+        "type": "int64"
+      },
+      {
+        "name": "has_load",
+        "type": "bool"
+      },
+      {
+        "name": "has_clear",
+        "type": "bool"
+      },
+      {
+        "name": "has_enable",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_out",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "CLR_N",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "CLK",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "A",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "B",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "C",
+        "direction": "input",
+        "pin_number": 5
+      },
+      {
+        "name": "D",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "ENP",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 8
+      },
+      {
+        "name": "LOAD_N",
+        "direction": "input",
+        "pin_number": 9
+      },
+      {
+        "name": "ENT",
+        "direction": "input",
+        "pin_number": 10
+      },
+      {
+        "name": "QD",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "QC",
+        "direction": "output",
+        "pin_number": 12
+      },
+      {
+        "name": "QB",
+        "direction": "output",
+        "pin_number": 13
+      },
+      {
+        "name": "QA",
+        "direction": "output",
+        "pin_number": 14
+      },
+      {
+        "name": "RCO",
+        "direction": "output",
+        "pin_number": 15
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 16
+      }
     ]
   },
   "74164_8bit_shift_register": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "direction", "type": "[40]string"},
-      {"name": "has_clear", "type": "bool"},
-      {"name": "serial_inputs", "type": "int64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "direction",
+        "type": "[40]string"
+      },
+      {
+        "name": "has_clear",
+        "type": "bool"
+      },
+      {
+        "name": "serial_inputs",
+        "type": "int64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "A",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "B",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "QA",
+        "direction": "output",
+        "pin_number": 3
+      },
+      {
+        "name": "QB",
+        "direction": "output",
+        "pin_number": 4
+      },
+      {
+        "name": "QC",
+        "direction": "output",
+        "pin_number": 5
+      },
+      {
+        "name": "QD",
+        "direction": "output",
+        "pin_number": 6
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "CLK",
+        "direction": "input",
+        "pin_number": 8
+      },
+      {
+        "name": "CLR_N",
+        "direction": "input",
+        "pin_number": 9
+      },
+      {
+        "name": "QE",
+        "direction": "output",
+        "pin_number": 10
+      },
+      {
+        "name": "QF",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "QG",
+        "direction": "output",
+        "pin_number": 12
+      },
+      {
+        "name": "QH",
+        "direction": "output",
+        "pin_number": 13
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   }
 }

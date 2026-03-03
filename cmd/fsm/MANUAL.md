@@ -1,8 +1,8 @@
 # fsm — Command-Line Reference
 
-**fsm-toolkit CLI** for converting, rendering, analysing, validating, and running finite state machines.
+**fsm-toolkit CLI** for converting, rendering, analysing, validating, running, and generating code from finite state machines. Also supports structural netlist export, bundle management, and class property inspection.
 
-**See also:** [Workflows guide](../../WORKFLOWS.md) for how the tools fit together, [fsmedit manual](../fsmedit/MANUAL.md) for the visual editor, [SPECIFICATION.md](../../SPECIFICATION.md) for formal semantics, [COMPATIBILITY.md](../../COMPATIBILITY.md) for version stability promises.
+**See also:** [Workflows guide](../../docs/workflows.md) for how the tools fit together, [fsmedit manual](../fsmedit/MANUAL.md) for the visual editor, [Specification](../../docs/specification.md) for formal semantics, [Compatibility](../../docs/compatibility.md) for version stability promises.
 
 ---
 
@@ -30,7 +30,7 @@ The toolkit works with three file formats for FSM data, plus Graphviz DOT for re
 
 **Hex** (`.hex`) is a compact text encoding where each record is 20 hexadecimal characters: `TYPE SSSS:IIII TTTT:OOOO`. Hex files contain only the numeric machine data with no labels or layout information. They are useful for low-level inspection and for environments where minimal file size matters.
 
-**FSM** (`.fsm`) is a ZIP archive containing `machine.hex` (the binary data), optionally `labels.toml` (human-readable names for states, inputs, and outputs), and optionally `layout.toml` (visual editor positions). This is the primary distribution format — it preserves all information including labels and editor layout, while remaining compact. FSM files can also be **bundles** containing multiple machines in a hierarchical composition.
+**FSM** (`.fsm`) is a ZIP archive containing `machine.hex` (the binary data), optionally `labels.toml` (human-readable names for states, inputs, and outputs), optionally `layout.toml` (visual editor positions), and optionally `classes.json` (class definitions and per-state property values). This is the primary distribution format — it preserves all information including labels, editor layout, and class metadata, while remaining compact. FSM files can also be **bundles** containing multiple machines in a hierarchical composition.
 
 **DOT** is the Graphviz graph description language, used as an intermediate format for rendering. The `fsm dot` command generates DOT output that can be piped to Graphviz tools or saved for manual editing.
 
@@ -184,7 +184,7 @@ fsm svg beatles.fsm --native --width 1200 --height 800 --font-size 16 --shape di
 
 ### info
 
-Display information about an FSM: type, name, state count, alphabet, transitions, initial state, accepting states, and linked state mappings.
+Display information about an FSM: type, name, state count, alphabet, transitions, initial state, accepting states, linked state mappings, and class assignments. For detailed property values, use `fsm properties`.
 
 ```
 fsm info <input> [-m machine]
@@ -465,6 +465,88 @@ Example:
 fsm extract system.fsm --machine parser -o parser.fsm
 ```
 
+### netlist
+
+Export a structural netlist from an FSM or circuit definition. Useful for EDA tool integration and PCB design workflows.
+
+```
+fsm netlist <input> [--format <fmt>] [-o output] [-m machine] [--bake]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--format` | Output format: `text` (default), `kicad`, `json` |
+| `-o, --output` | Output file (default: stdout) |
+| `-m, --machine` | Select machine from bundle |
+| `--bake` | Write derived KiCad fields (part, footprint) back into the source file |
+
+The **text** format produces a human-readable listing of components and connections. The **KiCad** format produces a KiCad S-expression netlist (`.net`) suitable for import into KiCad PCB. The **json** format produces a structured JSON representation of the netlist for programmatic processing.
+
+KiCad part and footprint strings are derived automatically for 74xx-series components from the class name and pin count. Use `--bake` to write these derived values back into the source file so they can be overridden manually.
+
+Examples:
+
+```bash
+# Human-readable netlist
+fsm netlist circuit.json
+
+# KiCad netlist export
+fsm netlist circuit.json --format kicad -o circuit.net
+
+# JSON for scripting
+fsm netlist circuit.json --format json -o netlist.json
+
+# Write derived KiCad fields back to source
+fsm netlist circuit.json --bake
+```
+
+### properties
+
+Query state class assignments and property values. Useful for inspecting metadata attached to states — particularly agent permissions, timer conditions, plane assignments, and annotations added by external tooling.
+
+```
+fsm properties <input> [--state <n>] [--class <n>] [--machine <n>] [--all] [--format <fmt>]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--state, -s` | Show only the given state |
+| `--class, -c` | Show only states assigned to this class |
+| `--machine, -m` | Select machine from bundle (default: first) |
+| `--all, -a` | Iterate all machines in a bundle |
+| `--format, -f` | Output format: `text` (default), `json`, `csv`, `asciitable`, `htmltable` |
+
+`--state` and `--class` are independent and composable. Either, both, or neither may be specified.
+
+Output columns: **Machine**, **State**, **Class**, **Property**, **Value**. States with a class assignment but no populated property values appear as a single row with property `(none)`.
+
+The `text` format groups output hierarchically by machine and state. The `json` format produces a nested object keyed by machine name, then state name, containing `class` and `properties` fields. The `csv`, `asciitable`, and `htmltable` formats produce flat tabular output suitable for spreadsheets, terminal display, and web embedding respectively.
+
+Examples:
+
+```bash
+# All properties for all states
+fsm properties heladera.fsm
+
+# Single state
+fsm properties heladera.fsm --state temperatura_elevada
+
+# All states of a given class
+fsm properties heladera.fsm --class shelf_time_driven
+
+# All machines in a bundle, terminal states only, as CSV
+fsm properties paracaidas.fsm --all --class shelf_terminal --format csv
+
+# All machines in a bundle as JSON
+fsm properties bundle.fsm --all --format json
+
+# ASCII table for terminal display
+fsm properties bundle.fsm --all --format asciitable
+
+# HTML table for reporting
+fsm properties bundle.fsm --format htmltable > report.html
+```
+
 ## Bundles and Linked States
 
 A bundle is an FSM file containing multiple machines. Machines within a bundle can reference each other through **linked states**: a state in one machine can delegate to another machine. When execution reaches a linked state, the linked machine runs from its initial state. When the linked machine reaches an accepting state, control returns to the parent.
@@ -473,7 +555,7 @@ Linked states enable hierarchical FSM composition — a complex system can be de
 
 Use `fsm machines` to list machines in a bundle, `fsm bundle` to create bundles, `fsm extract` to pull machines out, and `fsm validate --bundle` to check link integrity. The `fsm run` command fully supports linked state delegation when given a bundle file.
 
-For a detailed treatment of linked states and the delegation protocol, see [MACHINES.md](../../MACHINES.md).
+For a detailed treatment of linked states and the delegation protocol, see the [Machines guide](../../docs/machines.md).
 
 ## Correctness Model
 
@@ -499,7 +581,7 @@ An FSM is considered **clean** when both validation and analysis produce no issu
 
 The `.fsm` file is a ZIP archive. The hex record format uses 20-character records with four 16-bit fields and a record type. Record types 0000-0003 are currently defined: DFA/NFA transition (0000), Mealy transition (0001), state declaration (0002), and NFA multi-target (0003). Record types 0100-FFFF are reserved for extensions. Readers should ignore unknown record types for forward compatibility.
 
-For the complete hex format specification, see [SPECIFICATION.md](../../SPECIFICATION.md).
+For the complete hex format specification, see the [Specification](../../docs/specification.md).
 
 ## Capacity Limits
 

@@ -172,4 +172,4 @@ Creates separate PNG files for each machine.
    fsm validate bundle.fsm --bundle
    ```
 
-See [MACHINES.md](../../MACHINES.md) for complete documentation on linked states.
+See the [Machines guide](../../docs/machines.md) for complete documentation on linked states.

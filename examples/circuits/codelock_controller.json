@@ -1,0 +1,779 @@
+{
+  "name": "controller",
+  "type": "mealy",
+  "states": [
+    "LOCKED",
+    "UNLOCKING",
+    "UNLOCKED",
+    "RELOCKING",
+    "ALARM",
+    "LOCKOUT"
+  ],
+  "alphabet": [
+    "unlock_cmd",
+    "alarm_cmd",
+    "timeout",
+    "clear"
+  ],
+  "output_alphabet": [
+    "lock_open",
+    "siren",
+    "led_green",
+    "led_red"
+  ],
+  "initial": "LOCKED",
+  "transitions": [
+    {
+      "from": "LOCKED",
+      "input": "unlock_cmd",
+      "to": "UNLOCKING",
+      "output": "led_green"
+    },
+    {
+      "from": "LOCKED",
+      "input": "alarm_cmd",
+      "to": "ALARM",
+      "output": "led_red, siren"
+    },
+    {
+      "from": "UNLOCKING",
+      "input": "timeout",
+      "to": "UNLOCKED",
+      "output": "lock_open, led_green"
+    },
+    {
+      "from": "UNLOCKED",
+      "input": "timeout",
+      "to": "RELOCKING"
+    },
+    {
+      "from": "RELOCKING",
+      "input": "timeout",
+      "to": "LOCKED"
+    },
+    {
+      "from": "ALARM",
+      "input": "timeout",
+      "to": "LOCKOUT",
+      "output": "led_red"
+    },
+    {
+      "from": "LOCKOUT",
+      "input": "timeout",
+      "to": "LOCKED"
+    },
+    {
+      "from": "LOCKOUT",
+      "input": "clear",
+      "to": "LOCKED"
+    }
+  ],
+  "classes": {
+    "default_state": {
+      "name": "default_state",
+      "properties": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "color",
+          "type": "[40]string"
+        },
+        {
+          "name": "weight",
+          "type": "float64"
+        },
+        {
+          "name": "timeout",
+          "type": "float64"
+        },
+        {
+          "name": "is_error",
+          "type": "bool"
+        }
+      ]
+    },
+    "7474_dual_d_flipflop": {
+      "properties": [
+        {
+          "name": "flipflop_count",
+          "type": "int64"
+        },
+        {
+          "name": "trigger",
+          "type": "[40]string"
+        },
+        {
+          "name": "has_preset",
+          "type": "bool"
+        },
+        {
+          "name": "has_clear",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1CLR_N",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "FF1"
+        },
+        {
+          "name": "1D",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "FF1"
+        },
+        {
+          "name": "1CLK",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "FF1"
+        },
+        {
+          "name": "1PRE_N",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q",
+          "direction": "output",
+          "pin_number": 5,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q_N",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "FF1"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "2Q_N",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "FF2"
+        },
+        {
+          "name": "2Q",
+          "direction": "output",
+          "pin_number": 9,
+          "group": "FF2"
+        },
+        {
+          "name": "2PRE_N",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLK",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "FF2"
+        },
+        {
+          "name": "2D",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLR_N",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "FF2"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7474_dual_d_flipflop"
+    },
+    "74121_monostable": {
+      "properties": [
+        {
+          "name": "trigger_inputs",
+          "type": "list"
+        },
+        {
+          "name": "retriggerable",
+          "type": "bool"
+        },
+        {
+          "name": "has_complement_output",
+          "type": "bool"
+        },
+        {
+          "name": "external_rc",
+          "type": "bool"
+        },
+        {
+          "name": "internal_resistor_kohm",
+          "type": "float64"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "Q_N",
+          "direction": "output",
+          "pin_number": 1
+        },
+        {
+          "name": "NC1",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "A1_N",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "A2_N",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "B",
+          "direction": "input",
+          "pin_number": 5
+        },
+        {
+          "name": "Q",
+          "direction": "output",
+          "pin_number": 6
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "NC2",
+          "direction": "input",
+          "pin_number": 8
+        },
+        {
+          "name": "RINT",
+          "direction": "input",
+          "pin_number": 9
+        },
+        {
+          "name": "CEXT",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "REXT_CEXT",
+          "direction": "input",
+          "pin_number": 11
+        },
+        {
+          "name": "NC3",
+          "direction": "input",
+          "pin_number": 12
+        },
+        {
+          "name": "NC4",
+          "direction": "input",
+          "pin_number": 13
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "74121_monostable"
+    },
+    "7400_quad_nand": {
+      "properties": [
+        {
+          "name": "gate_count",
+          "type": "int64"
+        },
+        {
+          "name": "inputs_per_gate",
+          "type": "int64"
+        },
+        {
+          "name": "output_type",
+          "type": "[40]string"
+        },
+        {
+          "name": "logic_function",
+          "type": "[40]string"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        },
+        {
+          "name": "compatible_parts",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "GATE_A"
+        },
+        {
+          "name": "1B",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "GATE_A"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 3,
+          "group": "GATE_A"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "GATE_B"
+        },
+        {
+          "name": "2B",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "GATE_B"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "GATE_B"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "GATE_C"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 9,
+          "group": "GATE_C"
+        },
+        {
+          "name": "3B",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "GATE_C"
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 11,
+          "group": "GATE_D"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "GATE_D"
+        },
+        {
+          "name": "4B",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "GATE_D"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7400_quad_nand"
+    },
+    "7404_hex_inverter": {
+      "properties": [
+        {
+          "name": "gate_count",
+          "type": "int64"
+        },
+        {
+          "name": "output_type",
+          "type": "[40]string"
+        },
+        {
+          "name": "logic_function",
+          "type": "[40]string"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        },
+        {
+          "name": "compatible_parts",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "INV_1"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 2,
+          "group": "INV_1"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "INV_2"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 4,
+          "group": "INV_2"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "INV_3"
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "INV_3"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "INV_4"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 9,
+          "group": "INV_4"
+        },
+        {
+          "name": "5Y",
+          "direction": "output",
+          "pin_number": 10,
+          "group": "INV_5"
+        },
+        {
+          "name": "5A",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "INV_5"
+        },
+        {
+          "name": "6Y",
+          "direction": "output",
+          "pin_number": 12,
+          "group": "INV_6"
+        },
+        {
+          "name": "6A",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "INV_6"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7404_hex_inverter"
+    }
+  },
+  "state_classes": {
+    "LOCKED": "7400_quad_nand",
+    "UNLOCKING": "7474_dual_d_flipflop",
+    "UNLOCKED": "74121_monostable",
+    "ALARM": "7400_quad_nand",
+    "RELOCKING": "7404_hex_inverter",
+    "LOCKOUT": "7404_hex_inverter"
+  },
+  "nets": [
+    {
+      "name": "UNLOCK_GATE",
+      "endpoints": [
+        {
+          "instance": "LOCKED",
+          "port": "1Y"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "1D"
+        }
+      ]
+    },
+    {
+      "name": "UNLOCK_CLK",
+      "endpoints": [
+        {
+          "instance": "LOCKED",
+          "port": "2Y"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "1CLK"
+        }
+      ]
+    },
+    {
+      "name": "LOCK_STATE",
+      "endpoints": [
+        {
+          "instance": "UNLOCKING",
+          "port": "1Q"
+        },
+        {
+          "instance": "UNLOCKED",
+          "port": "B"
+        },
+        {
+          "instance": "RELOCKING",
+          "port": "1A"
+        }
+      ]
+    },
+    {
+      "name": "RELOCK_N",
+      "endpoints": [
+        {
+          "instance": "UNLOCKED",
+          "port": "Q_N"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "1CLR_N"
+        }
+      ]
+    },
+    {
+      "name": "ALARM_GATE",
+      "endpoints": [
+        {
+          "instance": "LOCKED",
+          "port": "3Y"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "2D"
+        }
+      ]
+    },
+    {
+      "name": "ALARM_CLK",
+      "endpoints": [
+        {
+          "instance": "ALARM",
+          "port": "4Y"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "2CLK"
+        }
+      ]
+    },
+    {
+      "name": "ALARM_STATE",
+      "endpoints": [
+        {
+          "instance": "UNLOCKING",
+          "port": "2Q"
+        },
+        {
+          "instance": "RELOCKING",
+          "port": "2A"
+        }
+      ]
+    },
+    {
+      "name": "LED_LOCK",
+      "endpoints": [
+        {
+          "instance": "RELOCKING",
+          "port": "1Y"
+        },
+        {
+          "instance": "LOCKOUT",
+          "port": "3A"
+        }
+      ]
+    },
+    {
+      "name": "LED_ALARM",
+      "endpoints": [
+        {
+          "instance": "RELOCKING",
+          "port": "2Y"
+        },
+        {
+          "instance": "LOCKOUT",
+          "port": "4A"
+        }
+      ]
+    },
+    {
+      "name": "VCC",
+      "endpoints": [
+        {
+          "instance": "LOCKED",
+          "port": "VCC"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "VCC"
+        },
+        {
+          "instance": "UNLOCKED",
+          "port": "VCC"
+        },
+        {
+          "instance": "RELOCKING",
+          "port": "VCC"
+        },
+        {
+          "instance": "ALARM",
+          "port": "VCC"
+        },
+        {
+          "instance": "LOCKOUT",
+          "port": "VCC"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "1PRE_N"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "2PRE_N"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "2CLR_N"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "endpoints": [
+        {
+          "instance": "LOCKED",
+          "port": "GND"
+        },
+        {
+          "instance": "UNLOCKING",
+          "port": "GND"
+        },
+        {
+          "instance": "UNLOCKED",
+          "port": "GND"
+        },
+        {
+          "instance": "RELOCKING",
+          "port": "GND"
+        },
+        {
+          "instance": "ALARM",
+          "port": "GND"
+        },
+        {
+          "instance": "LOCKOUT",
+          "port": "GND"
+        }
+      ]
+    }
+  ]
+}

@@ -182,8 +182,11 @@ func (ed *Editor) drawComponentCard(x, y int, cls *fsm.Class, selected bool, scr
 		row2 = row2[:cw-3] + "..."
 	}
 
-	// Row 3: property count.
+	// Row 3: property and port counts.
 	row3 := fmt.Sprintf("%d props", len(cls.Properties))
+	if cls.HasPorts() {
+		row3 = fmt.Sprintf("%d props, %d pins", len(cls.Properties), len(cls.Ports))
+	}
 
 	// Draw background fill.
 	for dy := 0; dy < drawerCardHeight && dy < maxH; dy++ {

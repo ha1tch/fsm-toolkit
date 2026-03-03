@@ -2,7 +2,7 @@
 
 This guide explains how to use the FSM Toolkit in practice. The toolkit has a lot of surface area — a CLI with 14 commands, a visual editor with 20 modes, a class system, code generators, bundle composition — and it is not always obvious which parts to use for a given task, or in what order. This document walks through the common workflows from simple to complex, showing how the pieces fit together.
 
-**Prerequisites.** You have `fsm` and `fsmedit` built or installed. Graphviz is optional but helpful. See the [README](README.md) for build instructions.
+**Prerequisites.** You have `fsm` and `fsmedit` built or installed. Graphviz is optional but helpful. See the [README](../README.md) for build instructions.
 
 ---
 
@@ -301,12 +301,63 @@ For projects with many typed components (digital circuits, network topologies, o
 
 ### What the class system produces
 
-Class data persists in JSON. Every state's class assignments and property values are saved and restored faithfully. The data is available to any tool that reads the JSON output: `fsm info` shows it, `fsm convert` preserves it, and external tools can parse the JSON to extract property data for their own purposes (BOM generation, simulation parameters, pin mapping, or whatever the domain requires).
+Class data persists in JSON and in the `classes.json` entry of `.fsm` files. Every state's class assignment and property values are saved and restored faithfully.
+
+**Inspecting from the CLI:** `fsm info` shows class names and their assignments. `fsm properties` gives full property value access with filtering and multiple output formats:
+
+```bash
+# All property values for all states
+fsm properties my_machine.fsm
+
+# Filter by state or class
+fsm properties my_machine.fsm --state idle
+fsm properties my_machine.fsm --class shelf_terminal
+
+# All machines in a bundle, as CSV
+fsm properties bundle.fsm --all --format csv
+
+# HTML table for a report
+fsm properties bundle.fsm --format htmltable > report.html
+```
+
+**Programmatic access:** `fsm convert` preserves class data through all format round-trips. External tools can parse the JSON or use `fsm properties --format json` to extract property data for their own purposes (BOM generation, simulation parameters, permission auditing, or whatever the domain requires).
 
 The class system is a metadata authoring tool. The FSM Toolkit does not itself consume property values for rendering, code generation, or execution — the runner steps through transitions regardless of what properties a state carries. The value is in the structured, typed, validated data that the toolkit produces and external tools can consume.
 
 
-## 9. Automate with scripts and CI
+
+## 9. Export structural netlists
+
+When states represent physical components (logic gates, connectors, modules), the class/port system can describe their connectivity. The `fsm netlist` command exports this as a structural netlist.
+
+### Defining connectivity
+
+In the editor, assign classes with ports to states (components). Connect ports using the connection detail window (E key). Named nets appear as labelled connections between component instances.
+
+### Exporting
+
+```bash
+# Human-readable listing of components and connections
+fsm netlist circuit.json
+
+# KiCad netlist for PCB layout
+fsm netlist circuit.json --format kicad -o circuit.net
+
+# JSON for programmatic processing (BOM tools, simulation, etc.)
+fsm netlist circuit.json --format json -o netlist.json
+```
+
+### KiCad integration
+
+For 74xx-series components, part numbers and footprints are derived automatically from class names and pin counts. Use `--bake` to write these derived values back into the source file so they can be inspected or overridden:
+
+```bash
+fsm netlist circuit.json --bake
+```
+
+The toolkit ships with class libraries for 74xx arithmetic, gates, buffers, registers, multiplexers, and sequential logic in `class-libraries/`. Load them from fsmedit's Settings panel to make them available in the component drawer.
+
+## 10. Automate with scripts and CI
 
 The CLI is designed for scripting. All commands accept file arguments, produce structured output, and use exit codes (0 for success, 1 for failure).
 
@@ -374,4 +425,4 @@ If you are building a hierarchical system with delegation between sub-machines, 
 
 ---
 
-**Reference:** [fsm CLI manual](cmd/fsm/MANUAL.md) — [fsmedit manual](cmd/fsmedit/MANUAL.md) — [README](README.md)
+**Reference:** [fsm CLI manual](../cmd/fsm/MANUAL.md) — [fsmedit manual](../cmd/fsmedit/MANUAL.md) — [README](../README.md)

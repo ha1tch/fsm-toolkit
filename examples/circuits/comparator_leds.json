@@ -1,0 +1,367 @@
+{
+  "name": "4-Bit Comparator with LED Indicators",
+  "type": "dfa",
+  "states": [
+    "U1",
+    "U2"
+  ],
+  "transitions": [
+    {
+      "from": "U1",
+      "input": "compare",
+      "to": [
+        "U2"
+      ]
+    }
+  ],
+  "classes": {
+    "7485_4bit_comparator": {
+      "properties": [
+        {
+          "name": "bit_width",
+          "type": "int64"
+        },
+        {
+          "name": "cascade_inputs",
+          "type": "list"
+        },
+        {
+          "name": "outputs",
+          "type": "list"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "B3",
+          "direction": "input",
+          "pin_number": 1
+        },
+        {
+          "name": "LT_IN",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "EQ_IN",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "GT_IN",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "GT_OUT",
+          "direction": "output",
+          "pin_number": 5
+        },
+        {
+          "name": "EQ_OUT",
+          "direction": "output",
+          "pin_number": 6
+        },
+        {
+          "name": "LT_OUT",
+          "direction": "output",
+          "pin_number": 7
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 8
+        },
+        {
+          "name": "B0",
+          "direction": "input",
+          "pin_number": 9
+        },
+        {
+          "name": "A0",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "B1",
+          "direction": "input",
+          "pin_number": 11
+        },
+        {
+          "name": "A1",
+          "direction": "input",
+          "pin_number": 12
+        },
+        {
+          "name": "A2",
+          "direction": "input",
+          "pin_number": 13
+        },
+        {
+          "name": "B2",
+          "direction": "input",
+          "pin_number": 14
+        },
+        {
+          "name": "A3",
+          "direction": "input",
+          "pin_number": 15
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 16
+        }
+      ],
+      "name": "7485_4bit_comparator"
+    },
+    "7404_hex_inverter": {
+      "properties": [
+        {
+          "name": "gate_count",
+          "type": "int64"
+        },
+        {
+          "name": "output_type",
+          "type": "[40]string"
+        },
+        {
+          "name": "logic_function",
+          "type": "[40]string"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        },
+        {
+          "name": "compatible_parts",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "INV_1"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 2,
+          "group": "INV_1"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "INV_2"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 4,
+          "group": "INV_2"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "INV_3"
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "INV_3"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "INV_4"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 9,
+          "group": "INV_4"
+        },
+        {
+          "name": "5Y",
+          "direction": "output",
+          "pin_number": 10,
+          "group": "INV_5"
+        },
+        {
+          "name": "5A",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "INV_5"
+        },
+        {
+          "name": "6Y",
+          "direction": "output",
+          "pin_number": 12,
+          "group": "INV_6"
+        },
+        {
+          "name": "6A",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "INV_6"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7404_hex_inverter"
+    },
+    "default_state": {
+      "name": "default_state",
+      "properties": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "color",
+          "type": "[40]string"
+        },
+        {
+          "name": "weight",
+          "type": "float64"
+        },
+        {
+          "name": "timeout",
+          "type": "float64"
+        },
+        {
+          "name": "is_error",
+          "type": "bool"
+        }
+      ]
+    }
+  },
+  "state_classes": {
+    "U1": "7485_4bit_comparator",
+    "U2": "7404_hex_inverter"
+  },
+  "nets": [
+    {
+      "name": "GT_ACTIVE",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "GT_OUT"
+        },
+        {
+          "instance": "U2",
+          "port": "1A"
+        }
+      ]
+    },
+    {
+      "name": "EQ_ACTIVE",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "EQ_OUT"
+        },
+        {
+          "instance": "U2",
+          "port": "2A"
+        }
+      ]
+    },
+    {
+      "name": "LT_ACTIVE",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "LT_OUT"
+        },
+        {
+          "instance": "U2",
+          "port": "3A"
+        }
+      ]
+    },
+    {
+      "name": "VCC",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "VCC"
+        },
+        {
+          "instance": "U2",
+          "port": "VCC"
+        },
+        {
+          "instance": "U1",
+          "port": "EQ_IN"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "GND"
+        },
+        {
+          "instance": "U2",
+          "port": "GND"
+        },
+        {
+          "instance": "U1",
+          "port": "GT_IN"
+        },
+        {
+          "instance": "U1",
+          "port": "LT_IN"
+        }
+      ]
+    }
+  ],
+  "alphabet": [
+    "compare"
+  ],
+  "initial": "U1"
+}

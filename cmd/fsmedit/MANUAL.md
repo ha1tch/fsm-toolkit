@@ -2,7 +2,7 @@
 
 **fsmedit** is a terminal-based visual editor for creating and modifying finite state machines. It runs in any modern terminal emulator and provides a canvas for placing states, drawing transitions, managing bundles of linked machines, and assigning classes with typed properties.
 
-**See also:** [Workflows guide](../../WORKFLOWS.md) for how the tools fit together, [fsm CLI manual](../fsm/MANUAL.md) for the command-line tool, [SPECIFICATION.md](../../SPECIFICATION.md) for formal semantics, [MACHINES.md](../../MACHINES.md) for linked states and bundles.
+**See also:** [Workflows guide](../../docs/workflows.md) for how the tools fit together, [fsm CLI manual](../fsm/MANUAL.md) for the command-line tool, [Specification](../../docs/specification.md) for formal semantics, [Machines](../../docs/machines.md) for linked states and bundles.
 
 ---
 

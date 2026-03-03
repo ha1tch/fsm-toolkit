@@ -4,4 +4,4 @@
 package version
 
 // Version is the current release version of fsm-toolkit.
-const Version = "0.9.5"
+const Version = "0.9.6"

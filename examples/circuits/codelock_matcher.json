@@ -1,0 +1,777 @@
+{
+  "name": "matcher",
+  "type": "dfa",
+  "states": [
+    "DIGIT_1",
+    "DIGIT_2",
+    "MATCH",
+    "FAIL"
+  ],
+  "alphabet": [
+    "digit_in",
+    "match",
+    "mismatch",
+    "reset"
+  ],
+  "output_alphabet": [
+    "unlock",
+    "alarm"
+  ],
+  "initial": "DIGIT_1",
+  "transitions": [
+    {
+      "from": "DIGIT_1",
+      "input": "digit_in",
+      "to": "DIGIT_2"
+    },
+    {
+      "from": "DIGIT_2",
+      "input": "match",
+      "to": "MATCH"
+    },
+    {
+      "from": "DIGIT_2",
+      "input": "mismatch",
+      "to": "FAIL"
+    },
+    {
+      "from": "MATCH",
+      "input": "reset",
+      "to": "DIGIT_1"
+    },
+    {
+      "from": "FAIL",
+      "input": "reset",
+      "to": "DIGIT_1"
+    }
+  ],
+  "state_outputs": {
+    "MATCH": "unlock",
+    "FAIL": "alarm"
+  },
+  "linked_machines": {
+    "MATCH": "controller",
+    "FAIL": "controller"
+  },
+  "classes": {
+    "default_state": {
+      "name": "default_state",
+      "properties": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "color",
+          "type": "[40]string"
+        },
+        {
+          "name": "weight",
+          "type": "float64"
+        },
+        {
+          "name": "timeout",
+          "type": "float64"
+        },
+        {
+          "name": "is_error",
+          "type": "bool"
+        }
+      ]
+    },
+    "74161_sync_4bit_counter": {
+      "properties": [
+        {
+          "name": "bit_width",
+          "type": "int64"
+        },
+        {
+          "name": "count_modulus",
+          "type": "int64"
+        },
+        {
+          "name": "has_load",
+          "type": "bool"
+        },
+        {
+          "name": "has_clear",
+          "type": "bool"
+        },
+        {
+          "name": "has_enable",
+          "type": "bool"
+        },
+        {
+          "name": "has_carry_out",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "CLR_N",
+          "direction": "input",
+          "pin_number": 1
+        },
+        {
+          "name": "CLK",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "A",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "B",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "C",
+          "direction": "input",
+          "pin_number": 5
+        },
+        {
+          "name": "D",
+          "direction": "input",
+          "pin_number": 6
+        },
+        {
+          "name": "ENP",
+          "direction": "input",
+          "pin_number": 7
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 8
+        },
+        {
+          "name": "LOAD_N",
+          "direction": "input",
+          "pin_number": 9
+        },
+        {
+          "name": "ENT",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "QD",
+          "direction": "output",
+          "pin_number": 11
+        },
+        {
+          "name": "QC",
+          "direction": "output",
+          "pin_number": 12
+        },
+        {
+          "name": "QB",
+          "direction": "output",
+          "pin_number": 13
+        },
+        {
+          "name": "QA",
+          "direction": "output",
+          "pin_number": 14
+        },
+        {
+          "name": "RCO",
+          "direction": "output",
+          "pin_number": 15
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 16
+        }
+      ],
+      "name": "74161_sync_4bit_counter"
+    },
+    "7485_4bit_comparator": {
+      "properties": [
+        {
+          "name": "bit_width",
+          "type": "int64"
+        },
+        {
+          "name": "cascade_inputs",
+          "type": "list"
+        },
+        {
+          "name": "outputs",
+          "type": "list"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "B3",
+          "direction": "input",
+          "pin_number": 1
+        },
+        {
+          "name": "LT_IN",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "EQ_IN",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "GT_IN",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "GT_OUT",
+          "direction": "output",
+          "pin_number": 5
+        },
+        {
+          "name": "EQ_OUT",
+          "direction": "output",
+          "pin_number": 6
+        },
+        {
+          "name": "LT_OUT",
+          "direction": "output",
+          "pin_number": 7
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 8
+        },
+        {
+          "name": "B0",
+          "direction": "input",
+          "pin_number": 9
+        },
+        {
+          "name": "A0",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "B1",
+          "direction": "input",
+          "pin_number": 11
+        },
+        {
+          "name": "A1",
+          "direction": "input",
+          "pin_number": 12
+        },
+        {
+          "name": "A2",
+          "direction": "input",
+          "pin_number": 13
+        },
+        {
+          "name": "B2",
+          "direction": "input",
+          "pin_number": 14
+        },
+        {
+          "name": "A3",
+          "direction": "input",
+          "pin_number": 15
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 16
+        }
+      ],
+      "name": "7485_4bit_comparator"
+    },
+    "74157_quad_2to1_mux": {
+      "properties": [
+        {
+          "name": "mux_count",
+          "type": "int64"
+        },
+        {
+          "name": "input_count",
+          "type": "int64"
+        },
+        {
+          "name": "select_lines",
+          "type": "int64"
+        },
+        {
+          "name": "shared_select",
+          "type": "bool"
+        },
+        {
+          "name": "has_enable",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "SEL",
+          "direction": "input",
+          "pin_number": 1
+        },
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "MUX_1"
+        },
+        {
+          "name": "1B",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "MUX_1"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 4,
+          "group": "MUX_1"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "MUX_2"
+        },
+        {
+          "name": "2B",
+          "direction": "input",
+          "pin_number": 6,
+          "group": "MUX_2"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 7,
+          "group": "MUX_2"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 8
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 9,
+          "group": "MUX_3"
+        },
+        {
+          "name": "3B",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "MUX_3"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "MUX_3"
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 12,
+          "group": "MUX_4"
+        },
+        {
+          "name": "4B",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "MUX_4"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 14,
+          "group": "MUX_4"
+        },
+        {
+          "name": "STROBE_N",
+          "direction": "input",
+          "pin_number": 15
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 16
+        }
+      ],
+      "name": "74157_quad_2to1_mux"
+    },
+    "7474_dual_d_flipflop": {
+      "properties": [
+        {
+          "name": "flipflop_count",
+          "type": "int64"
+        },
+        {
+          "name": "trigger",
+          "type": "[40]string"
+        },
+        {
+          "name": "has_preset",
+          "type": "bool"
+        },
+        {
+          "name": "has_clear",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1CLR_N",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "FF1"
+        },
+        {
+          "name": "1D",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "FF1"
+        },
+        {
+          "name": "1CLK",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "FF1"
+        },
+        {
+          "name": "1PRE_N",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q",
+          "direction": "output",
+          "pin_number": 5,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q_N",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "FF1"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "2Q_N",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "FF2"
+        },
+        {
+          "name": "2Q",
+          "direction": "output",
+          "pin_number": 9,
+          "group": "FF2"
+        },
+        {
+          "name": "2PRE_N",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLK",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "FF2"
+        },
+        {
+          "name": "2D",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLR_N",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "FF2"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7474_dual_d_flipflop"
+    }
+  },
+  "state_classes": {
+    "DIGIT_1": "74161_sync_4bit_counter",
+    "DIGIT_2": "7485_4bit_comparator",
+    "MATCH": "7474_dual_d_flipflop",
+    "FAIL": "74157_quad_2to1_mux"
+  },
+  "nets": [
+    {
+      "name": "POS_SEL",
+      "endpoints": [
+        {
+          "instance": "DIGIT_1",
+          "port": "QA"
+        },
+        {
+          "instance": "FAIL",
+          "port": "SEL"
+        }
+      ]
+    },
+    {
+      "name": "REF_BIT0",
+      "endpoints": [
+        {
+          "instance": "FAIL",
+          "port": "1Y"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "B0"
+        }
+      ]
+    },
+    {
+      "name": "REF_BIT1",
+      "endpoints": [
+        {
+          "instance": "FAIL",
+          "port": "2Y"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "B1"
+        }
+      ]
+    },
+    {
+      "name": "REF_BIT2",
+      "endpoints": [
+        {
+          "instance": "FAIL",
+          "port": "3Y"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "B2"
+        }
+      ]
+    },
+    {
+      "name": "CMP_EQUAL",
+      "endpoints": [
+        {
+          "instance": "DIGIT_2",
+          "port": "EQ_OUT"
+        },
+        {
+          "instance": "MATCH",
+          "port": "1D"
+        }
+      ]
+    },
+    {
+      "name": "SEQ_DONE",
+      "endpoints": [
+        {
+          "instance": "DIGIT_1",
+          "port": "RCO"
+        },
+        {
+          "instance": "MATCH",
+          "port": "1CLK"
+        }
+      ]
+    },
+    {
+      "name": "VCC",
+      "endpoints": [
+        {
+          "instance": "DIGIT_1",
+          "port": "VCC"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "VCC"
+        },
+        {
+          "instance": "FAIL",
+          "port": "VCC"
+        },
+        {
+          "instance": "MATCH",
+          "port": "VCC"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "ENP"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "ENT"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "LOAD_N"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "EQ_IN"
+        },
+        {
+          "instance": "MATCH",
+          "port": "1PRE_N"
+        },
+        {
+          "instance": "MATCH",
+          "port": "1CLR_N"
+        },
+        {
+          "instance": "MATCH",
+          "port": "2PRE_N"
+        },
+        {
+          "instance": "MATCH",
+          "port": "2CLR_N"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "endpoints": [
+        {
+          "instance": "DIGIT_1",
+          "port": "GND"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "GND"
+        },
+        {
+          "instance": "FAIL",
+          "port": "GND"
+        },
+        {
+          "instance": "MATCH",
+          "port": "GND"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "GT_IN"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "LT_IN"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "B3"
+        },
+        {
+          "instance": "DIGIT_2",
+          "port": "A3"
+        },
+        {
+          "instance": "FAIL",
+          "port": "STROBE_N"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "A"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "B"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "C"
+        },
+        {
+          "instance": "DIGIT_1",
+          "port": "D"
+        }
+      ]
+    }
+  ]
+}

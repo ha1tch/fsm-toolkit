@@ -11,52 +11,25 @@ import (
 )
 
 // ====================================================================
-// Vocabulary system — domain-neutral labelling
+// Vocabulary system — delegates to pkg/fsm
 // ====================================================================
 
-// VocabLabels holds the display labels for a given vocabulary mode.
-type VocabLabels struct {
-	State      string // "State", "Component", "Node"
-	States     string // "States", "Components", "Nodes"
-	Transition string // "Transition", "Connection", "Edge"
-	Alphabet   string // "Alphabet", "Signals", "Labels"
-	Initial    string // "Initial", "Entry", "Start"
-	Accepting  string // "Accepting", "Terminal", "End"
-}
-
-var vocabularies = map[string]VocabLabels{
-	"fsm": {
-		State:      "State",
-		States:     "States",
-		Transition: "Transition",
-		Alphabet:   "Alphabet",
-		Initial:    "Initial",
-		Accepting:  "Accepting",
-	},
-	"circuit": {
-		State:      "Component",
-		States:     "Components",
-		Transition: "Connection",
-		Alphabet:   "Signals",
-		Initial:    "Entry",
-		Accepting:  "Output",
-	},
-	"generic": {
-		State:      "Node",
-		States:     "Nodes",
-		Transition: "Edge",
-		Alphabet:   "Labels",
-		Initial:    "Start",
-		Accepting:  "End",
-	},
-}
-
-// Vocab returns the current vocabulary labels based on config.
-func (ed *Editor) Vocab() VocabLabels {
-	if v, ok := vocabularies[ed.config.Vocabulary]; ok {
-		return v
+// Vocab returns the current vocabulary labels. Delegates to the FSM's
+// own Vocab() method, which handles "auto" detection and fallback.
+func (ed *Editor) Vocab() fsm.VocabLabels {
+	if ed.fsm != nil {
+		return ed.fsm.Vocab()
 	}
-	return vocabularies["fsm"]
+	return fsm.Vocabularies[fsm.VocabFSM]
+}
+
+// syncVocabularyFromConfig applies the config's vocabulary setting to
+// the FSM when the FSM's vocabulary is empty (not set by the file).
+// Called after loading a file or creating a new machine.
+func (ed *Editor) syncVocabularyFromConfig() {
+	if ed.fsm != nil && ed.fsm.Vocabulary == "" && ed.config.Vocabulary != "" {
+		ed.fsm.Vocabulary = ed.config.Vocabulary
+	}
 }
 
 // ====================================================================
@@ -91,7 +64,7 @@ func (ed *Editor) buildSettingsItems() []settingsItem {
 		{
 			Label:  "Vocabulary",
 			Key:    "vocabulary",
-			Values: []string{"fsm", "circuit", "generic"},
+			Values: fsm.VocabNames(), // fsm, circuit, generic, auto
 		},
 		{
 			Label:  "Class Library Dir",
@@ -123,8 +96,15 @@ func (ed *Editor) buildSettingsItems() []settingsItem {
 				}
 			}
 		case "vocabulary":
+			vocabVal := ""
+			if ed.fsm != nil {
+				vocabVal = ed.fsm.Vocabulary
+			}
+			if vocabVal == "" {
+				vocabVal = ed.config.Vocabulary
+			}
 			for j, v := range items[i].Values {
-				if v == ed.config.Vocabulary {
+				if v == vocabVal {
 					items[i].CurrentIdx = j
 				}
 			}
@@ -203,6 +183,10 @@ func (ed *Editor) drawSettings(w, h int) {
 		y++
 		if y < cy+ch-2 {
 			preview := vocab.States + " / " + vocab.Transition + " / " + vocab.Alphabet
+			if ed.fsm != nil && ed.fsm.Vocabulary == fsm.VocabAuto {
+				resolved := ed.fsm.ResolvedVocabulary()
+				preview = "(" + resolved + ") " + preview
+			}
 			ed.drawString(cx+2, y, "Preview: "+preview, styleOverlayDim)
 		}
 	}
@@ -316,6 +300,10 @@ func (ed *Editor) cycleSettingValue(items []settingsItem, dir int) {
 		}
 		ed.modified = true
 	case "vocabulary":
+		if ed.fsm != nil {
+			ed.fsm.Vocabulary = newVal
+			ed.modified = true
+		}
 		ed.config.Vocabulary = newVal
 	}
 }
@@ -467,7 +455,7 @@ func sortCatalog(cats []CatalogCategory) {
 }
 
 // parseClassLibrary parses a .classes.json file which is a JSON object
-// mapping class names to their property definitions.
+// mapping class names to their property definitions and optional port lists.
 //
 // Format:
 //
@@ -476,6 +464,9 @@ func sortCatalog(cats []CatalogCategory) {
 //	    "properties": [
 //	      {"name": "prop_name", "type": "float64"},
 //	      {"name": "items", "type": "list"}
+//	    ],
+//	    "ports": [
+//	      {"name": "1A", "direction": "input", "pin_number": 1, "group": "GATE_A"}
 //	    ]
 //	  }
 //	}
@@ -484,6 +475,7 @@ func parseClassLibrary(data []byte) ([]*fsm.Class, error) {
 	var raw map[string]struct {
 		Parent     string            `json:"parent,omitempty"`
 		Properties []fsm.PropertyDef `json:"properties"`
+		Ports      []fsm.Port        `json:"ports,omitempty"`
 	}
 
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -496,6 +488,7 @@ func parseClassLibrary(data []byte) ([]*fsm.Class, error) {
 			Name:       name,
 			Parent:     def.Parent,
 			Properties: def.Properties,
+			Ports:      def.Ports,
 		}
 		if cls.Properties == nil {
 			cls.Properties = []fsm.PropertyDef{}

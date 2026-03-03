@@ -247,6 +247,13 @@ func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
 			} else {
 				ed.showMessage("Arcs hidden", MsgInfo)
 			}
+		case 'n', 'N':
+			ed.showNets = !ed.showNets
+			if ed.showNets {
+				ed.showMessage("Nets visible", MsgInfo)
+			} else {
+				ed.showMessage("Nets hidden", MsgInfo)
+			}
 		case 'g', 'G':
 			// Check if cursor is on a state - if so, select it first
 			stateUnderCursor := ed.findStateAtCursor()
@@ -272,6 +279,8 @@ func (ed *Editor) handleCanvasKey(ev *tcell.EventKey) bool {
 			ed.mode = ModeHelp
 		case 'c', 'C':
 			ed.openDrawer()
+		case 'e', 'E':
+			ed.openNetDetail()
 		case 'p', 'P':
 			if ed.selectedState >= 0 && ed.selectedState < len(ed.states) {
 				stateName := ed.states[ed.selectedState].Name

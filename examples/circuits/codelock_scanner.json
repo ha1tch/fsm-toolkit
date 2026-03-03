@@ -1,0 +1,534 @@
+{
+  "name": "scanner",
+  "type": "dfa",
+  "states": [
+    "IDLE",
+    "KEY_PRESSED",
+    "DEBOUNCE",
+    "VALID"
+  ],
+  "alphabet": [
+    "key_down",
+    "key_up",
+    "timeout",
+    "ack"
+  ],
+  "output_alphabet": [
+    "digit_ready"
+  ],
+  "initial": "IDLE",
+  "transitions": [
+    {
+      "from": "IDLE",
+      "input": "key_down",
+      "to": "KEY_PRESSED"
+    },
+    {
+      "from": "KEY_PRESSED",
+      "input": "timeout",
+      "to": "DEBOUNCE"
+    },
+    {
+      "from": "KEY_PRESSED",
+      "input": "key_up",
+      "to": "IDLE"
+    },
+    {
+      "from": "DEBOUNCE",
+      "input": "timeout",
+      "to": "VALID"
+    },
+    {
+      "from": "DEBOUNCE",
+      "input": "key_up",
+      "to": "IDLE"
+    },
+    {
+      "from": "VALID",
+      "input": "ack",
+      "to": "IDLE"
+    }
+  ],
+  "state_outputs": {
+    "VALID": "digit_ready"
+  },
+  "linked_machines": {
+    "VALID": "matcher"
+  },
+  "classes": {
+    "default_state": {
+      "name": "default_state",
+      "properties": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "color",
+          "type": "[40]string"
+        },
+        {
+          "name": "weight",
+          "type": "float64"
+        },
+        {
+          "name": "timeout",
+          "type": "float64"
+        },
+        {
+          "name": "is_error",
+          "type": "bool"
+        }
+      ]
+    },
+    "74148_8to3_priority_encoder": {
+      "properties": [
+        {
+          "name": "input_count",
+          "type": "int64"
+        },
+        {
+          "name": "output_lines",
+          "type": "int64"
+        },
+        {
+          "name": "has_enable",
+          "type": "bool"
+        },
+        {
+          "name": "has_group_signal",
+          "type": "bool"
+        },
+        {
+          "name": "cascadable",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "D4_N",
+          "direction": "input",
+          "pin_number": 1
+        },
+        {
+          "name": "D5_N",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "D6_N",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "D7_N",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "EI_N",
+          "direction": "input",
+          "pin_number": 5
+        },
+        {
+          "name": "A2_N",
+          "direction": "output",
+          "pin_number": 6
+        },
+        {
+          "name": "A1_N",
+          "direction": "output",
+          "pin_number": 7
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 8
+        },
+        {
+          "name": "A0_N",
+          "direction": "output",
+          "pin_number": 9
+        },
+        {
+          "name": "D0_N",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "D1_N",
+          "direction": "input",
+          "pin_number": 11
+        },
+        {
+          "name": "D2_N",
+          "direction": "input",
+          "pin_number": 12
+        },
+        {
+          "name": "D3_N",
+          "direction": "input",
+          "pin_number": 13
+        },
+        {
+          "name": "GS_N",
+          "direction": "output",
+          "pin_number": 14
+        },
+        {
+          "name": "EO_N",
+          "direction": "output",
+          "pin_number": 15
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 16
+        }
+      ],
+      "name": "74148_8to3_priority_encoder"
+    },
+    "7474_dual_d_flipflop": {
+      "properties": [
+        {
+          "name": "flipflop_count",
+          "type": "int64"
+        },
+        {
+          "name": "trigger",
+          "type": "[40]string"
+        },
+        {
+          "name": "has_preset",
+          "type": "bool"
+        },
+        {
+          "name": "has_clear",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1CLR_N",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "FF1"
+        },
+        {
+          "name": "1D",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "FF1"
+        },
+        {
+          "name": "1CLK",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "FF1"
+        },
+        {
+          "name": "1PRE_N",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q",
+          "direction": "output",
+          "pin_number": 5,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q_N",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "FF1"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "2Q_N",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "FF2"
+        },
+        {
+          "name": "2Q",
+          "direction": "output",
+          "pin_number": 9,
+          "group": "FF2"
+        },
+        {
+          "name": "2PRE_N",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLK",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "FF2"
+        },
+        {
+          "name": "2D",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLR_N",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "FF2"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7474_dual_d_flipflop"
+    },
+    "74121_monostable": {
+      "properties": [
+        {
+          "name": "trigger_inputs",
+          "type": "list"
+        },
+        {
+          "name": "retriggerable",
+          "type": "bool"
+        },
+        {
+          "name": "has_complement_output",
+          "type": "bool"
+        },
+        {
+          "name": "external_rc",
+          "type": "bool"
+        },
+        {
+          "name": "internal_resistor_kohm",
+          "type": "float64"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "Q_N",
+          "direction": "output",
+          "pin_number": 1
+        },
+        {
+          "name": "NC1",
+          "direction": "input",
+          "pin_number": 2
+        },
+        {
+          "name": "A1_N",
+          "direction": "input",
+          "pin_number": 3
+        },
+        {
+          "name": "A2_N",
+          "direction": "input",
+          "pin_number": 4
+        },
+        {
+          "name": "B",
+          "direction": "input",
+          "pin_number": 5
+        },
+        {
+          "name": "Q",
+          "direction": "output",
+          "pin_number": 6
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "NC2",
+          "direction": "input",
+          "pin_number": 8
+        },
+        {
+          "name": "RINT",
+          "direction": "input",
+          "pin_number": 9
+        },
+        {
+          "name": "CEXT",
+          "direction": "input",
+          "pin_number": 10
+        },
+        {
+          "name": "REXT_CEXT",
+          "direction": "input",
+          "pin_number": 11
+        },
+        {
+          "name": "NC3",
+          "direction": "input",
+          "pin_number": 12
+        },
+        {
+          "name": "NC4",
+          "direction": "input",
+          "pin_number": 13
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "74121_monostable"
+    }
+  },
+  "state_classes": {
+    "IDLE": "74148_8to3_priority_encoder",
+    "KEY_PRESSED": "74148_8to3_priority_encoder",
+    "DEBOUNCE": "74121_monostable",
+    "VALID": "7474_dual_d_flipflop"
+  },
+  "nets": [
+    {
+      "name": "KEY_STROBE",
+      "endpoints": [
+        {
+          "instance": "IDLE",
+          "port": "GS_N"
+        },
+        {
+          "instance": "DEBOUNCE",
+          "port": "B"
+        },
+        {
+          "instance": "VALID",
+          "port": "1D"
+        }
+      ]
+    },
+    {
+      "name": "DEBOUNCE_CLK",
+      "endpoints": [
+        {
+          "instance": "DEBOUNCE",
+          "port": "Q"
+        },
+        {
+          "instance": "VALID",
+          "port": "1CLK"
+        }
+      ]
+    },
+    {
+      "name": "VCC",
+      "endpoints": [
+        {
+          "instance": "IDLE",
+          "port": "VCC"
+        },
+        {
+          "instance": "DEBOUNCE",
+          "port": "VCC"
+        },
+        {
+          "instance": "VALID",
+          "port": "VCC"
+        },
+        {
+          "instance": "VALID",
+          "port": "1PRE_N"
+        },
+        {
+          "instance": "VALID",
+          "port": "1CLR_N"
+        },
+        {
+          "instance": "VALID",
+          "port": "2PRE_N"
+        },
+        {
+          "instance": "VALID",
+          "port": "2CLR_N"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "endpoints": [
+        {
+          "instance": "IDLE",
+          "port": "GND"
+        },
+        {
+          "instance": "DEBOUNCE",
+          "port": "GND"
+        },
+        {
+          "instance": "VALID",
+          "port": "GND"
+        },
+        {
+          "instance": "IDLE",
+          "port": "EI_N"
+        }
+      ]
+    }
+  ]
+}

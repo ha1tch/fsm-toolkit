@@ -98,6 +98,14 @@ func (ed *Editor) draw() {
 		ed.drawCanvas(w, h)
 		ed.drawSidebar(w, h)
 		ed.drawMachineManager(w, h)
+	case ModeNetDetail:
+		ed.drawCanvas(w, h)
+		ed.drawSidebar(w, h)
+		ed.drawNetDetail(w, h)
+	case ModeNetDetailPeer:
+		ed.drawCanvas(w, h)
+		ed.drawSidebar(w, h)
+		ed.drawNetDetailPeerPicker(w, h)
 	}
 
 	// Check drawer animation completion.

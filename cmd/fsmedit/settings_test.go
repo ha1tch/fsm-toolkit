@@ -10,8 +10,8 @@ import (
 )
 
 func TestVocabularies(t *testing.T) {
-	for _, key := range []string{"fsm", "circuit", "generic"} {
-		v, ok := vocabularies[key]
+	for _, key := range []string{fsm.VocabFSM, fsm.VocabCircuit, fsm.VocabGeneric} {
+		v, ok := fsm.Vocabularies[key]
 		if !ok {
 			t.Errorf("vocabulary %q not found", key)
 			continue
@@ -23,8 +23,8 @@ func TestVocabularies(t *testing.T) {
 }
 
 func TestVocabDefault(t *testing.T) {
-	ed := &Editor{}
-	ed.config.Vocabulary = "fsm"
+	ed := &Editor{fsm: fsm.New(fsm.TypeDFA)}
+	ed.fsm.Vocabulary = "fsm"
 	v := ed.Vocab()
 	if v.State != "State" {
 		t.Errorf("fsm vocab State = %q, want %q", v.State, "State")
@@ -35,8 +35,8 @@ func TestVocabDefault(t *testing.T) {
 }
 
 func TestVocabCircuit(t *testing.T) {
-	ed := &Editor{}
-	ed.config.Vocabulary = "circuit"
+	ed := &Editor{fsm: fsm.New(fsm.TypeDFA)}
+	ed.fsm.Vocabulary = "circuit"
 	v := ed.Vocab()
 	if v.State != "Component" {
 		t.Errorf("circuit vocab State = %q, want %q", v.State, "Component")
@@ -47,11 +47,84 @@ func TestVocabCircuit(t *testing.T) {
 }
 
 func TestVocabUnknownFallback(t *testing.T) {
-	ed := &Editor{}
-	ed.config.Vocabulary = "nonexistent"
+	ed := &Editor{fsm: fsm.New(fsm.TypeDFA)}
+	ed.fsm.Vocabulary = "nonexistent"
 	v := ed.Vocab()
 	if v.State != "State" {
 		t.Errorf("unknown vocab should fall back to fsm, got State=%q", v.State)
+	}
+}
+
+func TestVocabAuto(t *testing.T) {
+	// No structural features → resolves to fsm.
+	f := fsm.New(fsm.TypeDFA)
+	f.Vocabulary = fsm.VocabAuto
+	ed := &Editor{fsm: f}
+	v := ed.Vocab()
+	if v.State != "State" {
+		t.Errorf("auto with no ports: State = %q, want %q", v.State, "State")
+	}
+
+	// Add a class with ports → resolves to circuit.
+	cls := &fsm.Class{
+		Ports: []fsm.Port{{Name: "A", Direction: fsm.PortInput, PinNumber: 1}},
+	}
+	f.Classes["test_ic"] = cls
+	v = ed.Vocab()
+	if v.State != "Component" {
+		t.Errorf("auto with ports: State = %q, want %q", v.State, "Component")
+	}
+}
+
+func TestVocabAutoWithNets(t *testing.T) {
+	f := fsm.New(fsm.TypeDFA)
+	f.Vocabulary = fsm.VocabAuto
+	f.Nets = []fsm.Net{{Name: "CLK", Endpoints: []fsm.NetEndpoint{{Instance: "U1", Port: "Q"}}}}
+	if got := fsm.DetectVocabulary(f); got != fsm.VocabCircuit {
+		t.Errorf("DetectVocabulary with nets = %q, want %q", got, fsm.VocabCircuit)
+	}
+}
+
+func TestResolvedVocabulary(t *testing.T) {
+	f := fsm.New(fsm.TypeDFA)
+	f.Vocabulary = fsm.VocabAuto
+	if got := f.ResolvedVocabulary(); got != fsm.VocabFSM {
+		t.Errorf("auto empty = %q, want %q", got, fsm.VocabFSM)
+	}
+	f.Nets = []fsm.Net{{Name: "X"}}
+	if got := f.ResolvedVocabulary(); got != fsm.VocabCircuit {
+		t.Errorf("auto with nets = %q, want %q", got, fsm.VocabCircuit)
+	}
+}
+
+func TestSyncVocabularyFromConfig(t *testing.T) {
+	ed := &Editor{fsm: fsm.New(fsm.TypeDFA)}
+	ed.config.Vocabulary = "circuit"
+
+	// FSM has no vocabulary → sync should apply config default.
+	ed.syncVocabularyFromConfig()
+	if ed.fsm.Vocabulary != "circuit" {
+		t.Errorf("after sync: Vocabulary = %q, want %q", ed.fsm.Vocabulary, "circuit")
+	}
+
+	// FSM has explicit vocabulary → sync should not override.
+	ed.fsm.Vocabulary = "generic"
+	ed.syncVocabularyFromConfig()
+	if ed.fsm.Vocabulary != "generic" {
+		t.Errorf("after second sync: Vocabulary = %q, want %q", ed.fsm.Vocabulary, "generic")
+	}
+}
+
+func TestVocabNames(t *testing.T) {
+	names := fsm.VocabNames()
+	if len(names) != 4 {
+		t.Fatalf("VocabNames: got %d, want 4", len(names))
+	}
+	expected := []string{"fsm", "circuit", "generic", "auto"}
+	for i, n := range expected {
+		if names[i] != n {
+			t.Errorf("VocabNames[%d] = %q, want %q", i, names[i], n)
+		}
 	}
 }
 
@@ -128,6 +201,89 @@ func TestParseClassLibraryInvalid(t *testing.T) {
 	}
 }
 
+func TestParseClassLibraryWithPorts(t *testing.T) {
+	data := []byte(`{
+		"7474_dual_d_flipflop": {
+			"properties": [
+				{"name": "trigger", "type": "[40]string"}
+			],
+			"ports": [
+				{"name": "1CLR_N", "direction": "input",  "pin_number": 1,  "group": "FF1"},
+				{"name": "1D",     "direction": "input",  "pin_number": 2,  "group": "FF1"},
+				{"name": "1CLK",   "direction": "input",  "pin_number": 3,  "group": "FF1"},
+				{"name": "GND",    "direction": "power",  "pin_number": 7},
+				{"name": "2Q",     "direction": "output", "pin_number": 9,  "group": "FF2"},
+				{"name": "VCC",    "direction": "power",  "pin_number": 14}
+			]
+		}
+	}`)
+
+	classes, err := parseClassLibrary(data)
+	if err != nil {
+		t.Fatalf("parseClassLibrary: %v", err)
+	}
+	if len(classes) != 1 {
+		t.Fatalf("expected 1 class, got %d", len(classes))
+	}
+
+	cls := classes[0]
+	if !cls.HasPorts() {
+		t.Fatal("expected class to have ports")
+	}
+	if len(cls.Ports) != 6 {
+		t.Errorf("expected 6 ports, got %d", len(cls.Ports))
+	}
+
+	// Verify port data fidelity.
+	p := cls.GetPort("1CLK")
+	if p == nil {
+		t.Fatal("port 1CLK not found")
+	}
+	if p.Direction != fsm.PortInput {
+		t.Errorf("1CLK direction = %q, want %q", p.Direction, fsm.PortInput)
+	}
+	if p.PinNumber != 3 {
+		t.Errorf("1CLK pin_number = %d, want 3", p.PinNumber)
+	}
+	if p.Group != "FF1" {
+		t.Errorf("1CLK group = %q, want %q", p.Group, "FF1")
+	}
+
+	// Verify power ports.
+	pwr := cls.PowerPorts()
+	if len(pwr) != 2 {
+		t.Errorf("expected 2 power ports, got %d", len(pwr))
+	}
+
+	// Verify signal ports.
+	sig := cls.SignalPorts()
+	if len(sig) != 4 {
+		t.Errorf("expected 4 signal ports, got %d", len(sig))
+	}
+}
+
+func TestParseClassLibraryNoPorts(t *testing.T) {
+	// Existing format without ports should still work and produce no ports.
+	data := []byte(`{
+		"simple_class": {
+			"properties": [
+				{"name": "value", "type": "float64"}
+			]
+		}
+	}`)
+
+	classes, err := parseClassLibrary(data)
+	if err != nil {
+		t.Fatalf("parseClassLibrary: %v", err)
+	}
+	if len(classes) != 1 {
+		t.Fatalf("expected 1 class, got %d", len(classes))
+	}
+	if classes[0].HasPorts() {
+		t.Error("expected no ports for class without port definitions")
+	}
+}
+
 func TestCountClassLibFiles(t *testing.T) {
 	dir := t.TempDir()
 
@@ -171,6 +327,12 @@ func TestBuildSettingsItems(t *testing.T) {
 		if keys[i] != k {
 			t.Errorf("item[%d].Key = %q, want %q", i, keys[i], k)
 		}
+	}
+
+	// Vocabulary should have 4 values (fsm, circuit, generic, auto).
+	vocabItem := items[3]
+	if len(vocabItem.Values) != 4 {
+		t.Errorf("vocabulary values: got %d, want 4", len(vocabItem.Values))
 	}
 
 	// class_lib_dir has no Values (text input).

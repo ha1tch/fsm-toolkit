@@ -264,7 +264,7 @@ fsm bundle contact_form.fsm email_validator.fsm -o contact.fsm
 
 ## See Also
 
-- [fsm CLI Manual](cmd/fsm/MANUAL.md) — CLI reference (bundles, validate, run)
-- [fsmedit Manual](cmd/fsmedit/MANUAL.md) — Visual editor reference (bundle mode, machine manager, linked state navigation)
-- [SPECIFICATION.md](SPECIFICATION.md) — File format specification
-- [README.md](README.md) — Quick start guide
+- [fsm CLI Manual](../cmd/fsm/MANUAL.md) — CLI reference (bundles, validate, run)
+- [fsmedit Manual](../cmd/fsmedit/MANUAL.md) — Visual editor reference (bundle mode, machine manager, linked state navigation)
+- [Specification](specification.md) — File format specification
+- [README](../README.md) — Quick start guide

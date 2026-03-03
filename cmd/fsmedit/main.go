@@ -121,6 +121,7 @@ type Editor struct {
 
 	// Display options
 	showArcs bool // toggle arc visibility with 'w'
+	showNets bool // toggle net visibility with 'n'
 
 	// Flash effects (when clicking items in sidebar)
 	flashInput      string // input symbol being flashed, empty if none
@@ -245,6 +246,19 @@ type Editor struct {
 	drawerDragClass       *fsm.Class       // class being dragged
 	drawerDragX           int              // current mouse X
 	drawerDragY           int              // current mouse Y
+
+	// Connection detail window state.
+	netDetailStateA      string             // first component
+	netDetailStateB      string             // second component
+	netDetailRows        []netDetailConn    // computed connection rows
+	netDetailFootnotes   []netDetailFootnote // computed footnotes
+	netDetailSelected    int                // highlighted row
+	netDetailScroll      int                // scroll offset
+
+	// Peer picker state (when multiple connected peers).
+	netDetailPeers       []string           // available peers
+	netDetailPeerCursor  int                // selection in peer picker
+	netDetailPeerStateA  string             // the state we're finding peers for
 }
 
 // Snapshot captures editor state for undo/redo
@@ -308,6 +322,8 @@ const (
 	ModeSettings            // settings overlay
 	ModeDrawer              // component drawer open (bottom panel)
 	ModeMachineManager      // bundle machine management overlay
+	ModeNetDetail           // connection detail window
+	ModeNetDetailPeer       // peer picker for connection detail
 )
 
 // MessageType for status messages
@@ -365,6 +381,7 @@ func main() {
 
 	ed.screen = screen
 	ed.showArcs = true // arcs visible by default
+	ed.showNets = true // nets visible by default
 	ed.updateMenuItems()
 
 	// If file was loaded from command line, go straight to canvas

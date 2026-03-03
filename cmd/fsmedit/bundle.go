@@ -65,9 +65,18 @@ func (ed *Editor) promoteIfNeeded(continuation func()) {
 // importFilePicker opens the file picker in import mode.
 func (ed *Editor) importFilePicker() {
 	ed.importMode = true
-	ed.currentDir = ed.config.LastDir
-	if ed.currentDir == "" {
+	// Start from the directory of the current file if loaded,
+	// otherwise CWD, otherwise config fallback.
+	if ed.filename != "" {
+		ed.currentDir = filepath.Dir(ed.filename)
+	} else {
 		ed.currentDir, _ = os.Getwd()
+	}
+	if ed.currentDir == "" {
+		ed.currentDir = ed.config.LastDir
+	}
+	if ed.currentDir == "" {
+		ed.currentDir = "/"
 	}
 	ed.refreshFilePicker()
 	ed.filePickerFocus = 1

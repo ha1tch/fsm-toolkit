@@ -1,78 +1,756 @@
 {
   "7483_4bit_adder": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "has_carry_in", "type": "bool"},
-      {"name": "has_carry_out", "type": "bool"},
-      {"name": "propagation_delay_ns", "type": "float64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "has_carry_in",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_out",
+        "type": "bool"
+      },
+      {
+        "name": "propagation_delay_ns",
+        "type": "float64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "A4",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "S3",
+        "direction": "output",
+        "pin_number": 2
+      },
+      {
+        "name": "A3",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "B3",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 5
+      },
+      {
+        "name": "S2",
+        "direction": "output",
+        "pin_number": 6
+      },
+      {
+        "name": "B2",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "A2",
+        "direction": "input",
+        "pin_number": 8
+      },
+      {
+        "name": "S1",
+        "direction": "output",
+        "pin_number": 9
+      },
+      {
+        "name": "A1",
+        "direction": "input",
+        "pin_number": 10
+      },
+      {
+        "name": "B1",
+        "direction": "input",
+        "pin_number": 11
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 12
+      },
+      {
+        "name": "C0",
+        "direction": "input",
+        "pin_number": 13
+      },
+      {
+        "name": "C4",
+        "direction": "output",
+        "pin_number": 14
+      },
+      {
+        "name": "S4",
+        "direction": "output",
+        "pin_number": 15
+      },
+      {
+        "name": "B4",
+        "direction": "input",
+        "pin_number": 16
+      }
     ]
   },
   "74283_4bit_adder_fast": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "has_carry_in", "type": "bool"},
-      {"name": "has_carry_out", "type": "bool"},
-      {"name": "carry_lookahead", "type": "bool"},
-      {"name": "propagation_delay_ns", "type": "float64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "has_carry_in",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_out",
+        "type": "bool"
+      },
+      {
+        "name": "carry_lookahead",
+        "type": "bool"
+      },
+      {
+        "name": "propagation_delay_ns",
+        "type": "float64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "S2",
+        "direction": "output",
+        "pin_number": 1
+      },
+      {
+        "name": "B2",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "A2",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "S1",
+        "direction": "output",
+        "pin_number": 4
+      },
+      {
+        "name": "A1",
+        "direction": "input",
+        "pin_number": 5
+      },
+      {
+        "name": "B1",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "C0",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 8
+      },
+      {
+        "name": "C4",
+        "direction": "output",
+        "pin_number": 9
+      },
+      {
+        "name": "S4",
+        "direction": "output",
+        "pin_number": 10
+      },
+      {
+        "name": "B4",
+        "direction": "input",
+        "pin_number": 11
+      },
+      {
+        "name": "A4",
+        "direction": "input",
+        "pin_number": 12
+      },
+      {
+        "name": "S3",
+        "direction": "output",
+        "pin_number": 13
+      },
+      {
+        "name": "A3",
+        "direction": "input",
+        "pin_number": 14
+      },
+      {
+        "name": "B3",
+        "direction": "input",
+        "pin_number": 15
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 16
+      }
     ]
   },
   "7485_4bit_comparator": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "cascade_inputs", "type": "list"},
-      {"name": "outputs", "type": "list"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "cascade_inputs",
+        "type": "list"
+      },
+      {
+        "name": "outputs",
+        "type": "list"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "B3",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "LT_IN",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "EQ_IN",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "GT_IN",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "GT_OUT",
+        "direction": "output",
+        "pin_number": 5
+      },
+      {
+        "name": "EQ_OUT",
+        "direction": "output",
+        "pin_number": 6
+      },
+      {
+        "name": "LT_OUT",
+        "direction": "output",
+        "pin_number": 7
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 8
+      },
+      {
+        "name": "B0",
+        "direction": "input",
+        "pin_number": 9
+      },
+      {
+        "name": "A0",
+        "direction": "input",
+        "pin_number": 10
+      },
+      {
+        "name": "B1",
+        "direction": "input",
+        "pin_number": 11
+      },
+      {
+        "name": "A1",
+        "direction": "input",
+        "pin_number": 12
+      },
+      {
+        "name": "A2",
+        "direction": "input",
+        "pin_number": 13
+      },
+      {
+        "name": "B2",
+        "direction": "input",
+        "pin_number": 14
+      },
+      {
+        "name": "A3",
+        "direction": "input",
+        "pin_number": 15
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 16
+      }
     ]
   },
   "74181_4bit_alu": {
     "properties": [
-      {"name": "bit_width", "type": "int64"},
-      {"name": "function_count", "type": "int64"},
-      {"name": "has_carry_in", "type": "bool"},
-      {"name": "has_carry_out", "type": "bool"},
-      {"name": "has_carry_generate", "type": "bool"},
-      {"name": "has_carry_propagate", "type": "bool"},
-      {"name": "has_comparator", "type": "bool"},
-      {"name": "mode_select_bits", "type": "int64"},
-      {"name": "function_select_bits", "type": "int64"},
-      {"name": "operations", "type": "list"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "bit_width",
+        "type": "int64"
+      },
+      {
+        "name": "function_count",
+        "type": "int64"
+      },
+      {
+        "name": "has_carry_in",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_out",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_generate",
+        "type": "bool"
+      },
+      {
+        "name": "has_carry_propagate",
+        "type": "bool"
+      },
+      {
+        "name": "has_comparator",
+        "type": "bool"
+      },
+      {
+        "name": "mode_select_bits",
+        "type": "int64"
+      },
+      {
+        "name": "function_select_bits",
+        "type": "int64"
+      },
+      {
+        "name": "operations",
+        "type": "list"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "B0",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "A0",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "S3",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "S2",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "S1",
+        "direction": "input",
+        "pin_number": 5
+      },
+      {
+        "name": "S0",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "CN",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "M",
+        "direction": "input",
+        "pin_number": 8
+      },
+      {
+        "name": "F0",
+        "direction": "output",
+        "pin_number": 9
+      },
+      {
+        "name": "F1",
+        "direction": "output",
+        "pin_number": 10
+      },
+      {
+        "name": "F2",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 12
+      },
+      {
+        "name": "F3",
+        "direction": "output",
+        "pin_number": 13
+      },
+      {
+        "name": "A_EQ_B",
+        "direction": "output",
+        "pin_number": 14
+      },
+      {
+        "name": "P_N",
+        "direction": "output",
+        "pin_number": 15
+      },
+      {
+        "name": "CN4",
+        "direction": "output",
+        "pin_number": 16
+      },
+      {
+        "name": "G_N",
+        "direction": "output",
+        "pin_number": 17
+      },
+      {
+        "name": "B3",
+        "direction": "input",
+        "pin_number": 18
+      },
+      {
+        "name": "A3",
+        "direction": "input",
+        "pin_number": 19
+      },
+      {
+        "name": "B2",
+        "direction": "input",
+        "pin_number": 20
+      },
+      {
+        "name": "A2",
+        "direction": "input",
+        "pin_number": 21
+      },
+      {
+        "name": "B1",
+        "direction": "input",
+        "pin_number": 22
+      },
+      {
+        "name": "A1",
+        "direction": "input",
+        "pin_number": 23
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 24
+      }
     ]
   },
   "74182_carry_lookahead": {
     "properties": [
-      {"name": "group_size", "type": "int64"},
-      {"name": "cascade_width_bits", "type": "int64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "group_size",
+        "type": "int64"
+      },
+      {
+        "name": "cascade_width_bits",
+        "type": "int64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "G1_N",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "P1_N",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "G0_N",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "P0_N",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "P3_N",
+        "direction": "input",
+        "pin_number": 5
+      },
+      {
+        "name": "G3_N",
+        "direction": "input",
+        "pin_number": 6
+      },
+      {
+        "name": "P2_N",
+        "direction": "input",
+        "pin_number": 7
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 8
+      },
+      {
+        "name": "G2_N",
+        "direction": "input",
+        "pin_number": 9
+      },
+      {
+        "name": "CN_Z",
+        "direction": "output",
+        "pin_number": 10
+      },
+      {
+        "name": "G_N",
+        "direction": "output",
+        "pin_number": 11
+      },
+      {
+        "name": "CN_Y",
+        "direction": "output",
+        "pin_number": 12
+      },
+      {
+        "name": "CN_X",
+        "direction": "output",
+        "pin_number": 13
+      },
+      {
+        "name": "P_N",
+        "direction": "output",
+        "pin_number": 14
+      },
+      {
+        "name": "CN",
+        "direction": "input",
+        "pin_number": 15
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 16
+      }
     ]
   },
   "74180_parity_generator": {
     "properties": [
-      {"name": "input_count", "type": "int64"},
-      {"name": "has_even_output", "type": "bool"},
-      {"name": "has_odd_output", "type": "bool"},
-      {"name": "cascade_inputs", "type": "list"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "input_count",
+        "type": "int64"
+      },
+      {
+        "name": "has_even_output",
+        "type": "bool"
+      },
+      {
+        "name": "has_odd_output",
+        "type": "bool"
+      },
+      {
+        "name": "cascade_inputs",
+        "type": "list"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "I0",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "I1",
+        "direction": "input",
+        "pin_number": 2
+      },
+      {
+        "name": "I2",
+        "direction": "input",
+        "pin_number": 3
+      },
+      {
+        "name": "I3",
+        "direction": "input",
+        "pin_number": 4
+      },
+      {
+        "name": "EVEN",
+        "direction": "output",
+        "pin_number": 5
+      },
+      {
+        "name": "ODD",
+        "direction": "output",
+        "pin_number": 6
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "I7",
+        "direction": "input",
+        "pin_number": 8
+      },
+      {
+        "name": "I6",
+        "direction": "input",
+        "pin_number": 9
+      },
+      {
+        "name": "I5",
+        "direction": "input",
+        "pin_number": 10
+      },
+      {
+        "name": "I4",
+        "direction": "input",
+        "pin_number": 11
+      },
+      {
+        "name": "EVEN_IN",
+        "direction": "input",
+        "pin_number": 12
+      },
+      {
+        "name": "ODD_IN",
+        "direction": "input",
+        "pin_number": 13
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   }
 }

@@ -77,10 +77,14 @@ func (ed *Editor) resetBundleState() {
 }
 
 func (ed *Editor) openFilePicker() {
-	// Start in last used directory
-	ed.currentDir = ed.config.LastDir
+	// Start in the current working directory. Fall back to last used
+	// directory from config only if CWD is unavailable.
+	ed.currentDir, _ = os.Getwd()
 	if ed.currentDir == "" {
-		ed.currentDir, _ = os.Getwd()
+		ed.currentDir = ed.config.LastDir
+	}
+	if ed.currentDir == "" {
+		ed.currentDir = "/"
 	}
 	
 	ed.refreshFilePicker()

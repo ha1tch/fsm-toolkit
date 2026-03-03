@@ -1,0 +1,491 @@
+{
+  "name": "Gated D Flip-Flop",
+  "type": "dfa",
+  "states": [
+    "U1",
+    "U2",
+    "U3"
+  ],
+  "transitions": [
+    {
+      "from": "U1",
+      "input": "clk",
+      "to": [
+        "U3"
+      ]
+    }
+  ],
+  "classes": {
+    "7408_quad_and": {
+      "properties": [
+        {
+          "name": "gate_count",
+          "type": "int64"
+        },
+        {
+          "name": "inputs_per_gate",
+          "type": "int64"
+        },
+        {
+          "name": "output_type",
+          "type": "[40]string"
+        },
+        {
+          "name": "logic_function",
+          "type": "[40]string"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        },
+        {
+          "name": "compatible_parts",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "GATE_A"
+        },
+        {
+          "name": "1B",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "GATE_A"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 3,
+          "group": "GATE_A"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "GATE_B"
+        },
+        {
+          "name": "2B",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "GATE_B"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "GATE_B"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "GATE_C"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 9,
+          "group": "GATE_C"
+        },
+        {
+          "name": "3B",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "GATE_C"
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 11,
+          "group": "GATE_D"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "GATE_D"
+        },
+        {
+          "name": "4B",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "GATE_D"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7408_quad_and"
+    },
+    "7404_hex_inverter": {
+      "properties": [
+        {
+          "name": "gate_count",
+          "type": "int64"
+        },
+        {
+          "name": "output_type",
+          "type": "[40]string"
+        },
+        {
+          "name": "logic_function",
+          "type": "[40]string"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        },
+        {
+          "name": "compatible_parts",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1A",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "INV_1"
+        },
+        {
+          "name": "1Y",
+          "direction": "output",
+          "pin_number": 2,
+          "group": "INV_1"
+        },
+        {
+          "name": "2A",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "INV_2"
+        },
+        {
+          "name": "2Y",
+          "direction": "output",
+          "pin_number": 4,
+          "group": "INV_2"
+        },
+        {
+          "name": "3A",
+          "direction": "input",
+          "pin_number": 5,
+          "group": "INV_3"
+        },
+        {
+          "name": "3Y",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "INV_3"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "4Y",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "INV_4"
+        },
+        {
+          "name": "4A",
+          "direction": "input",
+          "pin_number": 9,
+          "group": "INV_4"
+        },
+        {
+          "name": "5Y",
+          "direction": "output",
+          "pin_number": 10,
+          "group": "INV_5"
+        },
+        {
+          "name": "5A",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "INV_5"
+        },
+        {
+          "name": "6Y",
+          "direction": "output",
+          "pin_number": 12,
+          "group": "INV_6"
+        },
+        {
+          "name": "6A",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "INV_6"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7404_hex_inverter"
+    },
+    "7474_dual_d_flipflop": {
+      "properties": [
+        {
+          "name": "flipflop_count",
+          "type": "int64"
+        },
+        {
+          "name": "trigger",
+          "type": "[40]string"
+        },
+        {
+          "name": "has_preset",
+          "type": "bool"
+        },
+        {
+          "name": "has_clear",
+          "type": "bool"
+        },
+        {
+          "name": "package",
+          "type": "[40]string"
+        },
+        {
+          "name": "vcc_pin",
+          "type": "int64"
+        },
+        {
+          "name": "gnd_pin",
+          "type": "int64"
+        },
+        {
+          "name": "pin_names",
+          "type": "list"
+        }
+      ],
+      "ports": [
+        {
+          "name": "1CLR_N",
+          "direction": "input",
+          "pin_number": 1,
+          "group": "FF1"
+        },
+        {
+          "name": "1D",
+          "direction": "input",
+          "pin_number": 2,
+          "group": "FF1"
+        },
+        {
+          "name": "1CLK",
+          "direction": "input",
+          "pin_number": 3,
+          "group": "FF1"
+        },
+        {
+          "name": "1PRE_N",
+          "direction": "input",
+          "pin_number": 4,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q",
+          "direction": "output",
+          "pin_number": 5,
+          "group": "FF1"
+        },
+        {
+          "name": "1Q_N",
+          "direction": "output",
+          "pin_number": 6,
+          "group": "FF1"
+        },
+        {
+          "name": "GND",
+          "direction": "power",
+          "pin_number": 7
+        },
+        {
+          "name": "2Q_N",
+          "direction": "output",
+          "pin_number": 8,
+          "group": "FF2"
+        },
+        {
+          "name": "2Q",
+          "direction": "output",
+          "pin_number": 9,
+          "group": "FF2"
+        },
+        {
+          "name": "2PRE_N",
+          "direction": "input",
+          "pin_number": 10,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLK",
+          "direction": "input",
+          "pin_number": 11,
+          "group": "FF2"
+        },
+        {
+          "name": "2D",
+          "direction": "input",
+          "pin_number": 12,
+          "group": "FF2"
+        },
+        {
+          "name": "2CLR_N",
+          "direction": "input",
+          "pin_number": 13,
+          "group": "FF2"
+        },
+        {
+          "name": "VCC",
+          "direction": "power",
+          "pin_number": 14
+        }
+      ],
+      "name": "7474_dual_d_flipflop"
+    },
+    "default_state": {
+      "name": "default_state",
+      "properties": [
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "color",
+          "type": "[40]string"
+        },
+        {
+          "name": "weight",
+          "type": "float64"
+        },
+        {
+          "name": "timeout",
+          "type": "float64"
+        },
+        {
+          "name": "is_error",
+          "type": "bool"
+        }
+      ]
+    }
+  },
+  "state_classes": {
+    "U1": "7408_quad_and",
+    "U2": "7404_hex_inverter",
+    "U3": "7474_dual_d_flipflop"
+  },
+  "nets": [
+    {
+      "name": "DATA_GATED",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "1Y"
+        },
+        {
+          "instance": "U3",
+          "port": "1D"
+        }
+      ]
+    },
+    {
+      "name": "CLK_INV",
+      "endpoints": [
+        {
+          "instance": "U2",
+          "port": "1Y"
+        },
+        {
+          "instance": "U3",
+          "port": "1CLK"
+        }
+      ]
+    },
+    {
+      "name": "VCC",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "VCC"
+        },
+        {
+          "instance": "U2",
+          "port": "VCC"
+        },
+        {
+          "instance": "U3",
+          "port": "VCC"
+        },
+        {
+          "instance": "U3",
+          "port": "1PRE_N"
+        },
+        {
+          "instance": "U3",
+          "port": "1CLR_N"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "endpoints": [
+        {
+          "instance": "U1",
+          "port": "GND"
+        },
+        {
+          "instance": "U2",
+          "port": "GND"
+        },
+        {
+          "instance": "U3",
+          "port": "GND"
+        }
+      ]
+    }
+  ],
+  "alphabet": [
+    "clk"
+  ],
+  "initial": "U1"
+}

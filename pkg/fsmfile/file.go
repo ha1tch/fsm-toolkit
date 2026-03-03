@@ -22,6 +22,7 @@ type Labels struct {
 	Inputs   map[int]string    `toml:"inputs"`
 	Outputs  map[int]string    `toml:"outputs"`
 	Machines map[string]string `toml:"machines"` // state name -> linked machine name
+	Nets     map[string]string `toml:"nets"`     // net name -> "U3.3Y, U7.2D"
 }
 
 // FSMMeta contains FSM metadata.
@@ -30,6 +31,7 @@ type FSMMeta struct {
 	Type        string `toml:"type"`
 	Name        string `toml:"name"`
 	Description string `toml:"description"`
+	Vocabulary  string `toml:"vocabulary"`
 }
 
 // GenerateLabels creates labels.toml content.
@@ -44,6 +46,9 @@ func GenerateLabels(f *fsm.FSM, states, inputs, outputs map[int]string) string {
 	}
 	if f.Description != "" {
 		sb.WriteString(fmt.Sprintf("description = %q\n", f.Description))
+	}
+	if f.Vocabulary != "" {
+		sb.WriteString(fmt.Sprintf("vocabulary = %q\n", f.Vocabulary))
 	}
 	sb.WriteString("\n")
 	
@@ -84,6 +89,19 @@ func GenerateLabels(f *fsm.FSM, states, inputs, outputs map[int]string) string {
 		}
 		sb.WriteString("\n")
 	}
+
+	// Write nets section if any
+	if len(f.Nets) > 0 {
+		sb.WriteString("[nets]\n")
+		for _, n := range f.Nets {
+			var eps []string
+			for _, ep := range n.Endpoints {
+				eps = append(eps, ep.Instance+"."+ep.Port)
+			}
+			sb.WriteString(fmt.Sprintf("%q = %q\n", n.Name, strings.Join(eps, ", ")))
+		}
+		sb.WriteString("\n")
+	}
 	
 	return sb.String()
 }
@@ -96,6 +114,7 @@ func ParseLabels(text string) (*Labels, error) {
 		Inputs:   make(map[int]string),
 		Outputs:  make(map[int]string),
 		Machines: make(map[string]string),
+		Nets:     make(map[string]string),
 	}
 	
 	var currentSection string
@@ -142,6 +161,8 @@ func ParseLabels(text string) (*Labels, error) {
 				labels.FSM.Name = value
 			case "description":
 				labels.FSM.Description = value
+			case "vocabulary":
+				labels.FSM.Vocabulary = value
 			}
 		case "states":
 			idx := parseHexKey(key)
@@ -161,6 +182,9 @@ func ParseLabels(text string) (*Labels, error) {
 		case "machines":
 			// key is state name (string), value is machine name
 			labels.Machines[key] = value
+		case "nets":
+			// key is net name (string), value is endpoint list string
+			labels.Nets[key] = value
 		}
 	}
 	
@@ -729,6 +753,8 @@ func CreateBundle(inputs []string, outputPath string) error {
 				outName = machineName + ".labels.toml"
 			case "layout.toml":
 				outName = machineName + ".layout.toml"
+			case "classes.json":
+				outName = machineName + ".classes.json"
 			default:
 				// Skip unknown files or already-namespaced files
 				continue
@@ -1075,6 +1101,17 @@ func generateLabelsToml(f *fsm.FSM) string {
 			buf.WriteString(fmt.Sprintf("%q = %q\n", state, machine))
 		}
 	}
+
+	if len(f.Nets) > 0 {
+		buf.WriteString("\n[nets]\n")
+		for _, n := range f.Nets {
+			var eps []string
+			for _, ep := range n.Endpoints {
+				eps = append(eps, ep.Instance+"."+ep.Port)
+			}
+			buf.WriteString(fmt.Sprintf("%q = %q\n", n.Name, strings.Join(eps, ", ")))
+		}
+	}
 	
 	return buf.String()
 }
@@ -1106,12 +1143,13 @@ type classesJSON struct {
 	Classes         map[string]*fsm.Class            `json:"classes,omitempty"`
 	StateClasses    map[string]string                 `json:"state_classes,omitempty"`
 	StateProperties map[string]map[string]interface{} `json:"state_properties,omitempty"`
+	Nets            []fsm.Net                         `json:"nets,omitempty"`
 }
 
 // hasClassData reports whether the FSM carries user-defined class information
-// beyond the built-in default_state class.
+// beyond the built-in default_state class, or structural net data.
 func hasClassData(f *fsm.FSM) bool {
-	if len(f.StateClasses) > 0 || len(f.StateProperties) > 0 {
+	if len(f.StateClasses) > 0 || len(f.StateProperties) > 0 || len(f.Nets) > 0 {
 		return true
 	}
 	// Check for user-defined classes (anything beyond default_state)
@@ -1133,6 +1171,7 @@ func generateClassesJSON(f *fsm.FSM) ([]byte, error) {
 		Classes:         f.Classes,
 		StateClasses:    f.StateClasses,
 		StateProperties: f.StateProperties,
+		Nets:            f.Nets,
 	}
 	return json.MarshalIndent(j, "", "  ")
 }
@@ -1153,6 +1192,9 @@ func applyClassesJSON(f *fsm.FSM, data []byte) error {
 	}
 	if j.StateProperties != nil {
 		f.StateProperties = j.StateProperties
+	}
+	if len(j.Nets) > 0 {
+		f.Nets = j.Nets
 	}
 	return nil
 }

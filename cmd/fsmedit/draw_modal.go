@@ -355,6 +355,7 @@ func (ed *Editor) drawHelpOverlay(w, h int) {
 			title: "Display Options",
 			items: [][2]string{
 				{"W", "Toggle visibility of transition arcs on the canvas"},
+				{"N", "Toggle visibility of structural nets on the canvas"},
 				{"R", "Render the FSM to an image file and open viewer"},
 				{"\\", "Toggle sidebar collapse/expand"},
 				{"", "  Drag divider to resize, snaps at default width"},
@@ -371,6 +372,16 @@ func (ed *Editor) drawHelpOverlay(w, h int) {
 				{"", "  Drag a card onto the canvas to drop it"},
 				{"", "  Esc: close the drawer"},
 				{"", "  Requires class libraries to be loaded in Settings"},
+			},
+		},
+		{
+			title: "Structural Connectivity",
+			items: [][2]string{
+				{"N", "Toggle net visibility on canvas"},
+				{"E", "Examine connections (select a state first)"},
+				{"", "  Shows pin-to-pin mappings between components"},
+				{"", "  A: add connection, D: delete, R: rename net"},
+				{"", "  Esc: close the detail window"},
 			},
 		},
 		{

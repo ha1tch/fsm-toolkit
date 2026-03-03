@@ -65,6 +65,11 @@ type Class struct {
 	Name       string        `json:"name"`
 	Parent     string        `json:"parent,omitempty"` // reserved for future inheritance
 	Properties []PropertyDef `json:"properties"`
+	Ports      []Port        `json:"ports,omitempty"` // empty for purely behavioural classes
+
+	// EDA interop — optional, populated by derivation or user override.
+	KiCadPart      string `json:"kicad_part,omitempty"`      // e.g. "74xx:7400"
+	KiCadFootprint string `json:"kicad_footprint,omitempty"` // e.g. "Package_DIP:DIP-14_W7.62mm"
 }
 
 // HasProperty checks whether the class defines a property with the given name.
@@ -106,6 +111,73 @@ func (c *Class) RemoveProperty(name string) bool {
 		}
 	}
 	return false
+}
+
+// PinCount returns the number of ports (including power).
+func (c *Class) PinCount() int {
+	return len(c.Ports)
+}
+
+// DeriveKiCadFields populates KiCadPart and KiCadFootprint from the
+// class name and pin count when they are empty. Returns true if any
+// field was set.
+//
+// Derivation rules:
+//   - KiCadPart: extract leading numeric prefix from class name
+//     (e.g. "7400_quad_nand" → "74xx:7400").
+//   - KiCadFootprint: standard DIP package from pin count
+//     (e.g. 14 pins → "Package_DIP:DIP-14_W7.62mm").
+func (c *Class) DeriveKiCadFields() bool {
+	changed := false
+
+	if c.KiCadPart == "" {
+		if part := derive74xxPart(c.Name); part != "" {
+			c.KiCadPart = part
+			changed = true
+		}
+	}
+
+	if c.KiCadFootprint == "" && c.PinCount() > 0 {
+		c.KiCadFootprint = deriveDIPFootprint(c.PinCount())
+		changed = true
+	}
+
+	return changed
+}
+
+// derive74xxPart extracts the leading numeric prefix from a class name
+// and returns a KiCad library reference like "74xx:7400".
+func derive74xxPart(name string) string {
+	// Extract leading digits.
+	i := 0
+	for i < len(name) && (name[i] >= '0' && name[i] <= '9') {
+		i++
+	}
+	if i == 0 {
+		return ""
+	}
+	num := name[:i]
+
+	// Must start with "74" to belong to the 74xx family.
+	if len(num) < 4 || num[:2] != "74" {
+		return ""
+	}
+
+	return "74xx:" + num
+}
+
+// deriveDIPFootprint returns the KiCad DIP footprint string for a
+// given pin count.
+func deriveDIPFootprint(pins int) string {
+	if pins <= 0 {
+		return ""
+	}
+	// Standard DIP packages: W7.62mm for ≤28 pins, W15.24mm for wider.
+	width := "W7.62mm"
+	if pins > 28 {
+		width = "W15.24mm"
+	}
+	return fmt.Sprintf("Package_DIP:DIP-%d_%s", pins, width)
 }
 
 // DefaultClassName is the name of the built-in class that provides

@@ -52,6 +52,18 @@ func (ed *Editor) saveSnapshot() {
 		fsmCopy.LinkedMachines[k] = v
 	}
 
+	// Deep copy nets
+	if len(ed.fsm.Nets) > 0 {
+		fsmCopy.Nets = make([]fsm.Net, len(ed.fsm.Nets))
+		for i, n := range ed.fsm.Nets {
+			fsmCopy.Nets[i] = fsm.Net{
+				Name:      n.Name,
+				Endpoints: make([]fsm.NetEndpoint, len(n.Endpoints)),
+			}
+			copy(fsmCopy.Nets[i].Endpoints, n.Endpoints)
+		}
+	}
+
 	// Copy state positions
 	statesCopy := make([]StatePos, len(ed.states))
 	copy(statesCopy, ed.states)
@@ -163,5 +175,18 @@ func (ed *Editor) copyFSM() *fsm.FSM {
 	for k, v := range ed.fsm.StateOutputs {
 		fsmCopy.StateOutputs[k] = v
 	}
+
+	// Deep copy nets
+	if len(ed.fsm.Nets) > 0 {
+		fsmCopy.Nets = make([]fsm.Net, len(ed.fsm.Nets))
+		for i, n := range ed.fsm.Nets {
+			fsmCopy.Nets[i] = fsm.Net{
+				Name:      n.Name,
+				Endpoints: make([]fsm.NetEndpoint, len(n.Endpoints)),
+			}
+			copy(fsmCopy.Nets[i].Endpoints, n.Endpoints)
+		}
+	}
+
 	return fsmCopy
 }

@@ -103,6 +103,10 @@ func (ed *Editor) handleKey(ev *tcell.EventKey) bool {
 		return ed.handleDrawerKey(ev)
 	case ModeMachineManager:
 		return ed.handleMachineManagerKey(ev)
+	case ModeNetDetail:
+		return ed.handleNetDetailKey(ev)
+	case ModeNetDetailPeer:
+		return ed.handleNetDetailPeerKey(ev)
 	}
 	return false
 }

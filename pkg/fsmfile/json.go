@@ -25,6 +25,12 @@ type jsonFSM struct {
 	Classes         map[string]*fsm.Class                `json:"classes,omitempty"`
 	StateClasses    map[string]string                     `json:"state_classes,omitempty"`
 	StateProperties map[string]map[string]interface{}     `json:"state_properties,omitempty"`
+
+	// Structural connectivity
+	Nets []fsm.Net `json:"nets,omitempty"`
+
+	// Vocabulary
+	Vocabulary string `json:"vocabulary,omitempty"`
 }
 
 type jsonTransition struct {
@@ -94,6 +100,12 @@ func ParseJSON(data []byte) (*fsm.FSM, error) {
 			}
 			f.StateProperties[state] = coerced
 		}
+	}
+	if len(j.Nets) > 0 {
+		f.Nets = j.Nets
+	}
+	if j.Vocabulary != "" {
+		f.Vocabulary = j.Vocabulary
 	}
 	
 	return f, nil
@@ -233,6 +245,12 @@ func ToJSON(f *fsm.FSM, pretty bool) ([]byte, error) {
 		if len(filtered) > 0 {
 			j.StateProperties = filtered
 		}
+	}
+	if len(f.Nets) > 0 {
+		j.Nets = f.Nets
+	}
+	if f.Vocabulary != "" {
+		j.Vocabulary = f.Vocabulary
 	}
 	
 	if pretty {

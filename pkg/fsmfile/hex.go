@@ -290,12 +290,13 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 	outputLabels := make(map[int]string)
 	
 	var fsmType fsm.Type
-	var fsmName, fsmDesc string
+	var fsmName, fsmDesc, fsmVocab string
 	
 	if labels != nil {
 		fsmType = fsm.Type(labels.FSM.Type)
 		fsmName = labels.FSM.Name
 		fsmDesc = labels.FSM.Description
+		fsmVocab = labels.FSM.Vocabulary
 		
 		for k, v := range labels.States {
 			stateLabels[k] = v
@@ -477,6 +478,7 @@ func RecordsToFSM(records []Record, labels *Labels) (*fsm.FSM, error) {
 	f := fsm.New(fsmType)
 	f.Name = fsmName
 	f.Description = fsmDesc
+	f.Vocabulary = fsmVocab
 	
 	// Add states in order
 	for i := 0; i <= maxKey(stateIDs); i++ {

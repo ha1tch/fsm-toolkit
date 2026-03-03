@@ -1,69 +1,770 @@
 {
   "7407_hex_buffer_oc": {
     "properties": [
-      {"name": "buffer_count", "type": "int64"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "max_sink_current_ma", "type": "float64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "buffer_count",
+        "type": "int64"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "max_sink_current_ma",
+        "type": "float64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1A",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "INV_1"
+      },
+      {
+        "name": "1Y",
+        "direction": "output",
+        "pin_number": 2,
+        "group": "INV_1"
+      },
+      {
+        "name": "2A",
+        "direction": "input",
+        "pin_number": 3,
+        "group": "INV_2"
+      },
+      {
+        "name": "2Y",
+        "direction": "output",
+        "pin_number": 4,
+        "group": "INV_2"
+      },
+      {
+        "name": "3A",
+        "direction": "input",
+        "pin_number": 5,
+        "group": "INV_3"
+      },
+      {
+        "name": "3Y",
+        "direction": "output",
+        "pin_number": 6,
+        "group": "INV_3"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "4Y",
+        "direction": "output",
+        "pin_number": 8,
+        "group": "INV_4"
+      },
+      {
+        "name": "4A",
+        "direction": "input",
+        "pin_number": 9,
+        "group": "INV_4"
+      },
+      {
+        "name": "5Y",
+        "direction": "output",
+        "pin_number": 10,
+        "group": "INV_5"
+      },
+      {
+        "name": "5A",
+        "direction": "input",
+        "pin_number": 11,
+        "group": "INV_5"
+      },
+      {
+        "name": "6Y",
+        "direction": "output",
+        "pin_number": 12,
+        "group": "INV_6"
+      },
+      {
+        "name": "6A",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "INV_6"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   },
   "7417_hex_buffer_oc_hv": {
     "properties": [
-      {"name": "buffer_count", "type": "int64"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "max_output_voltage", "type": "float64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "buffer_count",
+        "type": "int64"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "max_output_voltage",
+        "type": "float64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1A",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "INV_1"
+      },
+      {
+        "name": "1Y",
+        "direction": "output",
+        "pin_number": 2,
+        "group": "INV_1"
+      },
+      {
+        "name": "2A",
+        "direction": "input",
+        "pin_number": 3,
+        "group": "INV_2"
+      },
+      {
+        "name": "2Y",
+        "direction": "output",
+        "pin_number": 4,
+        "group": "INV_2"
+      },
+      {
+        "name": "3A",
+        "direction": "input",
+        "pin_number": 5,
+        "group": "INV_3"
+      },
+      {
+        "name": "3Y",
+        "direction": "output",
+        "pin_number": 6,
+        "group": "INV_3"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "4Y",
+        "direction": "output",
+        "pin_number": 8,
+        "group": "INV_4"
+      },
+      {
+        "name": "4A",
+        "direction": "input",
+        "pin_number": 9,
+        "group": "INV_4"
+      },
+      {
+        "name": "5Y",
+        "direction": "output",
+        "pin_number": 10,
+        "group": "INV_5"
+      },
+      {
+        "name": "5A",
+        "direction": "input",
+        "pin_number": 11,
+        "group": "INV_5"
+      },
+      {
+        "name": "6Y",
+        "direction": "output",
+        "pin_number": 12,
+        "group": "INV_6"
+      },
+      {
+        "name": "6A",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "INV_6"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   },
   "74125_quad_tristate_buffer": {
     "properties": [
-      {"name": "buffer_count", "type": "int64"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "enable_active_low", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "buffer_count",
+        "type": "int64"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "enable_active_low",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1OE_N",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "BUF_1"
+      },
+      {
+        "name": "1A",
+        "direction": "input",
+        "pin_number": 2,
+        "group": "BUF_1"
+      },
+      {
+        "name": "1Y",
+        "direction": "output",
+        "pin_number": 3,
+        "group": "BUF_1"
+      },
+      {
+        "name": "2OE_N",
+        "direction": "input",
+        "pin_number": 4,
+        "group": "BUF_2"
+      },
+      {
+        "name": "2A",
+        "direction": "input",
+        "pin_number": 5,
+        "group": "BUF_2"
+      },
+      {
+        "name": "2Y",
+        "direction": "output",
+        "pin_number": 6,
+        "group": "BUF_2"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "3Y",
+        "direction": "output",
+        "pin_number": 8,
+        "group": "BUF_3"
+      },
+      {
+        "name": "3A",
+        "direction": "input",
+        "pin_number": 9,
+        "group": "BUF_3"
+      },
+      {
+        "name": "3OE_N",
+        "direction": "input",
+        "pin_number": 10,
+        "group": "BUF_3"
+      },
+      {
+        "name": "4Y",
+        "direction": "output",
+        "pin_number": 11,
+        "group": "BUF_4"
+      },
+      {
+        "name": "4A",
+        "direction": "input",
+        "pin_number": 12,
+        "group": "BUF_4"
+      },
+      {
+        "name": "4OE_N",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "BUF_4"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   },
   "74126_quad_tristate_buffer": {
     "properties": [
-      {"name": "buffer_count", "type": "int64"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "enable_active_high", "type": "bool"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "buffer_count",
+        "type": "int64"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "enable_active_high",
+        "type": "bool"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1OE",
+        "direction": "input",
+        "pin_number": 1,
+        "group": "BUF_1"
+      },
+      {
+        "name": "1A",
+        "direction": "input",
+        "pin_number": 2,
+        "group": "BUF_1"
+      },
+      {
+        "name": "1Y",
+        "direction": "output",
+        "pin_number": 3,
+        "group": "BUF_1"
+      },
+      {
+        "name": "2OE",
+        "direction": "input",
+        "pin_number": 4,
+        "group": "BUF_2"
+      },
+      {
+        "name": "2A",
+        "direction": "input",
+        "pin_number": 5,
+        "group": "BUF_2"
+      },
+      {
+        "name": "2Y",
+        "direction": "output",
+        "pin_number": 6,
+        "group": "BUF_2"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 7
+      },
+      {
+        "name": "3Y",
+        "direction": "output",
+        "pin_number": 8,
+        "group": "BUF_3"
+      },
+      {
+        "name": "3A",
+        "direction": "input",
+        "pin_number": 9,
+        "group": "BUF_3"
+      },
+      {
+        "name": "3OE",
+        "direction": "input",
+        "pin_number": 10,
+        "group": "BUF_3"
+      },
+      {
+        "name": "4Y",
+        "direction": "output",
+        "pin_number": 11,
+        "group": "BUF_4"
+      },
+      {
+        "name": "4A",
+        "direction": "input",
+        "pin_number": 12,
+        "group": "BUF_4"
+      },
+      {
+        "name": "4OE",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "BUF_4"
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 14
+      }
     ]
   },
   "74244_octal_buffer": {
     "properties": [
-      {"name": "buffer_count", "type": "int64"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "enable_pins", "type": "int64"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "buffer_count",
+        "type": "int64"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "enable_pins",
+        "type": "int64"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "1OE_N",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "1A0",
+        "direction": "input",
+        "pin_number": 2,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2Y0",
+        "direction": "output",
+        "pin_number": 3,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1A1",
+        "direction": "input",
+        "pin_number": 4,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2Y1",
+        "direction": "output",
+        "pin_number": 5,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1A2",
+        "direction": "input",
+        "pin_number": 6,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2Y2",
+        "direction": "output",
+        "pin_number": 7,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1A3",
+        "direction": "input",
+        "pin_number": 8,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2Y3",
+        "direction": "output",
+        "pin_number": 9,
+        "group": "BUF_B"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 10
+      },
+      {
+        "name": "2A0",
+        "direction": "input",
+        "pin_number": 11,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1Y0",
+        "direction": "output",
+        "pin_number": 12,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2A1",
+        "direction": "input",
+        "pin_number": 13,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1Y1",
+        "direction": "output",
+        "pin_number": 14,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2A2",
+        "direction": "input",
+        "pin_number": 15,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1Y2",
+        "direction": "output",
+        "pin_number": 16,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2A3",
+        "direction": "input",
+        "pin_number": 17,
+        "group": "BUF_B"
+      },
+      {
+        "name": "1Y3",
+        "direction": "output",
+        "pin_number": 18,
+        "group": "BUF_A"
+      },
+      {
+        "name": "2OE_N",
+        "direction": "input",
+        "pin_number": 19
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 20
+      }
     ]
   },
   "74245_octal_bus_transceiver": {
     "properties": [
-      {"name": "channel_count", "type": "int64"},
-      {"name": "bidirectional", "type": "bool"},
-      {"name": "output_type", "type": "[40]string"},
-      {"name": "direction_pin", "type": "[40]string"},
-      {"name": "package", "type": "[40]string"},
-      {"name": "vcc_pin", "type": "int64"},
-      {"name": "gnd_pin", "type": "int64"},
-      {"name": "pin_names", "type": "list"}
+      {
+        "name": "channel_count",
+        "type": "int64"
+      },
+      {
+        "name": "bidirectional",
+        "type": "bool"
+      },
+      {
+        "name": "output_type",
+        "type": "[40]string"
+      },
+      {
+        "name": "direction_pin",
+        "type": "[40]string"
+      },
+      {
+        "name": "package",
+        "type": "[40]string"
+      },
+      {
+        "name": "vcc_pin",
+        "type": "int64"
+      },
+      {
+        "name": "gnd_pin",
+        "type": "int64"
+      },
+      {
+        "name": "pin_names",
+        "type": "list"
+      }
+    ],
+    "ports": [
+      {
+        "name": "DIR",
+        "direction": "input",
+        "pin_number": 1
+      },
+      {
+        "name": "A0",
+        "direction": "bidir",
+        "pin_number": 2,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B0",
+        "direction": "bidir",
+        "pin_number": 18,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A1",
+        "direction": "bidir",
+        "pin_number": 3,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B1",
+        "direction": "bidir",
+        "pin_number": 17,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A2",
+        "direction": "bidir",
+        "pin_number": 4,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B2",
+        "direction": "bidir",
+        "pin_number": 16,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A3",
+        "direction": "bidir",
+        "pin_number": 5,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B3",
+        "direction": "bidir",
+        "pin_number": 15,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A4",
+        "direction": "bidir",
+        "pin_number": 6,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B4",
+        "direction": "bidir",
+        "pin_number": 14,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A5",
+        "direction": "bidir",
+        "pin_number": 7,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B5",
+        "direction": "bidir",
+        "pin_number": 13,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A6",
+        "direction": "bidir",
+        "pin_number": 8,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B6",
+        "direction": "bidir",
+        "pin_number": 12,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "A7",
+        "direction": "bidir",
+        "pin_number": 9,
+        "group": "SIDE_A"
+      },
+      {
+        "name": "B7",
+        "direction": "bidir",
+        "pin_number": 11,
+        "group": "SIDE_B"
+      },
+      {
+        "name": "GND",
+        "direction": "power",
+        "pin_number": 10
+      },
+      {
+        "name": "OE_N",
+        "direction": "input",
+        "pin_number": 19
+      },
+      {
+        "name": "VCC",
+        "direction": "power",
+        "pin_number": 20
+      }
     ]
   }
 }

@@ -440,6 +440,29 @@ func (ed *Editor) pasteFromClipboard() {
 		}
 	}
 
+	// Add nets with renamed state references
+	netsAdded := 0
+	for _, net := range pastedFSM.Nets {
+		newEndpoints := make([]fsm.NetEndpoint, len(net.Endpoints))
+		for i, ep := range net.Endpoints {
+			newInst := ep.Instance
+			if renamed, ok := stateRename[ep.Instance]; ok {
+				newInst = renamed
+			}
+			newEndpoints[i] = fsm.NetEndpoint{Instance: newInst, Port: ep.Port}
+		}
+		// Derive a unique net name if there's a conflict.
+		netName := net.Name
+		for ed.fsm.GetNet(netName) != nil {
+			netName = netName + "_"
+		}
+		ed.fsm.Nets = append(ed.fsm.Nets, fsm.Net{
+			Name:      netName,
+			Endpoints: newEndpoints,
+		})
+		netsAdded++
+	}
+
 	// Note: We don't merge accepting states or initial state from pasted FSM
 	// as those are FSM-level properties, not additive
 
@@ -600,6 +623,9 @@ func (ed *Editor) editStateName(stateIdx int) {
 			}
 		}
 
+		// Cascade rename through nets
+		ed.fsm.CascadeRenameState(oldName, newName)
+
 		// Update position record
 		ed.states[stateIdx].Name = newName
 
@@ -661,6 +687,9 @@ func (ed *Editor) deleteSelected() {
 
 		// Remove from state outputs
 		delete(ed.fsm.StateOutputs, name)
+
+		// Cascade delete through nets
+		ed.fsm.CascadeDeleteState(name)
 
 		// Remove from positions
 		ed.states = append(ed.states[:ed.selectedState], ed.states[ed.selectedState+1:]...)

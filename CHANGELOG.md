@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.9.6] - 2026-03-01
+
+### Added
+
+#### Structural Connectivity (Phases 1–5)
+- Port model: classes can define typed ports with name, direction (input/output/bidirectional/power), pin number, and functional group
+- Net model: named electrical connections between ports on different component instances, with multi-fan-out support
+- Canvas net rendering: two-endpoint direct routes, multi-endpoint horizontal buses with vertical stubs, signal/power colour distinction
+- Connection detail window (E key): pin-to-pin view with direction arrows, grouped by functional unit, add/delete/rename connections
+- Net visibility toggle (N key) on the editor canvas
+
+#### Netlist Export
+- `fsm netlist` command with three output formats: text (human-readable), KiCad (S-expression .net), and JSON
+- Automatic KiCad library and footprint derivation for 74xx components (DIP-14/DIP-16/DIP-20/DIP-24)
+- `--bake` flag to write derived KiCad fields back into source files for manual override
+- Baking works on both FSM files and class library files; idempotent
+- Machine selection for bundle export (`--machine` flag)
+
+#### Vocabulary System (package-level)
+- Vocabulary moved from fsmedit surface to `pkg/fsm/vocab.go` as a first-class FSM property
+- Three vocabularies: `"fsm"` (state/transition/alphabet), `"circuit"` (component/connection/signal), `"generic"` (node/edge/label)
+- `"auto"` mode: detects vocabulary from structural features (classes with ports or nets resolve to circuit)
+- Persisted in JSON (`"vocabulary"` field) and labels.toml (`vocabulary` in `[fsm]` section)
+- CLI commands (info, analyse, validate, run) use vocabulary-aware labels throughout
+- fsmedit delegates to `pkg/fsm`, with settings panel cycling all four modes and auto-resolution preview
+
+#### Example Circuits
+- `gated_d_flipflop.json`: 7408 AND gate with 7404 inverter and 7474 D flip-flop
+- `counter_7seg.json`: 74161 decade counter with 7447 BCD-to-7-segment decoder and 7400 auto-reset
+- `comparator_leds.json`: 7485 4-bit magnitude comparator with 7404 LED drivers
+- `codelock.fsm`: three-machine bundle (scanner, matcher, controller) with 8 component types, 14 instances, linked-state delegation, and full behavioural+structural coverage
+
+### Fixed
+- `CreateBundle` now preserves `classes.json` files during bundling (previously silently dropped class/port/net data)
+- File picker now starts from the current working directory instead of a stale `last_dir` from the config file; import picker starts from the directory of the loaded file
+- Connection detail and peer picker no longer crash to shell on any keypress (handlers incorrectly returned "quit" signal)
+- Peer picker window title and labels now use vocabulary system instead of hardcoded terms
+- Connection detail: highlight now fills the full row width continuously
+- Connection detail: group labels (`[FF1]`, `[GATE_A]`) rendered in teal to distinguish from data rows
+- Connection detail: power net rows shown in amber, signal net rows in cyan; colours preserved through highlight
+- Connection detail: power nets now included in the display (previously silently excluded)
+
+### Changed
+
+#### Documentation Reorganisation
+- Documentation moved from root to `docs/` directory with lowercase filenames
+- `docs/index.md` as documentation hub with four sections: Guides, Tool Manuals, Reference, Examples
+- New `docs/design-philosophy.md` explaining the toolkit's architecture, dual-plane model, and design boundaries
+- New `docs/circuits.md` guide explaining the dual behavioural-structural model
+- All cross-references updated (52 links across 13 files verified)
+- README updated: docs table points to `docs/`, descriptions reflect netlist export and structural features, `pkg/export` added to Go packages listing
+
 ## [0.9.5] - 2026-03-01
 
 ### Added

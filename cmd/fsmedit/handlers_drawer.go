@@ -170,6 +170,10 @@ func (ed *Editor) instantiateComponent(cls *fsm.Class, canvasX, canvasY int) {
 			Properties: make([]fsm.PropertyDef, len(cls.Properties)),
 		}
 		copy(clsCopy.Properties, cls.Properties)
+		if len(cls.Ports) > 0 {
+			clsCopy.Ports = make([]fsm.Port, len(cls.Ports))
+			copy(clsCopy.Ports, cls.Ports)
+		}
 		ed.fsm.Classes[cls.Name] = clsCopy
 	}
 

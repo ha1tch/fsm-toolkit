@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/ha1tch/fsm-toolkit/pkg/codegen"
+	"github.com/ha1tch/fsm-toolkit/pkg/export"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsm"
 	"github.com/ha1tch/fsm-toolkit/pkg/fsmfile"
 	"github.com/ha1tch/fsm-toolkit/pkg/version"
@@ -37,6 +39,8 @@ Commands:
   edit       Open visual editor (invokes fsmedit)
   bundle     Create bundle from multiple FSM files
   extract    Extract machine from bundle
+  netlist    Export structural netlist (text, kicad, json)
+  properties Query state class assignments and property values
 
 Examples:
   fsm convert input.json -o output.fsm
@@ -54,6 +58,7 @@ Examples:
   fsm info bundle.fsm --machine pedestrian
   fsm bundle main.fsm child.fsm -o combined.fsm
   fsm extract bundle.fsm --machine child -o child.fsm
+  fsm netlist circuit.json --format kicad -o circuit.net
 
 Use "fsm <command> -h" for more information about a command.
 `
@@ -92,6 +97,10 @@ func main() {
 		cmdRun(args)
 	case "validate":
 		cmdValidate(args)
+	case "netlist":
+		cmdNetlist(args)
+	case "properties":
+		cmdProperties(args)
 	case "view":
 		cmdView(args)
 	case "edit":
@@ -572,21 +581,22 @@ func cmdInfo(args []string) {
 	if f.Description != "" {
 		fmt.Printf("Description: %s\n", f.Description)
 	}
-	fmt.Printf("States:      %d\n", len(f.States))
-	fmt.Printf("Inputs:      %d\n", len(f.Alphabet))
+	v := f.Vocab()
+	fmt.Printf("%-12s %d\n", v.States+":", len(f.States))
+	fmt.Printf("%-12s %d\n", v.Alphabet+":", len(f.Alphabet))
 	if len(f.OutputAlphabet) > 0 {
-		fmt.Printf("Outputs:     %d\n", len(f.OutputAlphabet))
+		fmt.Printf("%-12s %d\n", v.Output+"s:", len(f.OutputAlphabet))
 	}
-	fmt.Printf("Transitions: %d\n", len(f.Transitions))
-	fmt.Printf("Initial:     %s\n", f.Initial)
+	fmt.Printf("%-12s %d\n", v.Transition+"s:", len(f.Transitions))
+	fmt.Printf("%-12s %s\n", v.Initial+":", f.Initial)
 	if len(f.Accepting) > 0 {
-		fmt.Printf("Accepting:   %v\n", f.Accepting)
+		fmt.Printf("%-12s %v\n", v.Accepting+":", f.Accepting)
 	}
 	
 	// Display linked states
 	if f.HasLinkedStates() {
 		fmt.Println()
-		fmt.Println("Linked States:")
+		fmt.Printf("Linked %s:\n", v.States)
 		for state, machine := range f.LinkedMachines {
 			if machine != "" {
 				fmt.Printf("  %s → %s\n", state, machine)
@@ -614,18 +624,41 @@ func cmdInfo(args []string) {
 		}
 		if len(f.StateClasses) > 0 {
 			fmt.Println()
-			fmt.Println("Class Assignments:")
+			fmt.Printf("Class Assignments (%s → Class):\n", v.State)
 			for state, class := range f.StateClasses {
 				fmt.Printf("  %s → %s\n", state, class)
 			}
 		}
 	}
+
+	// Display net information
+	if f.HasNets() {
+		fmt.Println()
+		signalNets := f.SignalNets()
+		powerNets := len(f.Nets) - len(signalNets)
+		fmt.Printf("Nets:        %d", len(f.Nets))
+		if powerNets > 0 {
+			fmt.Printf(" (%d signal, %d power)", len(signalNets), powerNets)
+		}
+		fmt.Println()
+		for _, n := range f.Nets {
+			var eps []string
+			for _, ep := range n.Endpoints {
+				eps = append(eps, ep.Instance+"."+ep.Port)
+			}
+			tag := ""
+			if f.IsPowerNet(n) {
+				tag = " [power]"
+			}
+			fmt.Printf("  %s: %s%s\n", n.Name, strings.Join(eps, ", "), tag)
+		}
+	}
 	
 	fmt.Println()
-	fmt.Printf("States:      %v\n", f.States)
-	fmt.Printf("Alphabet:    %v\n", f.Alphabet)
+	fmt.Printf("%-12s %v\n", v.States+":", f.States)
+	fmt.Printf("%-12s %v\n", v.Alphabet+":", f.Alphabet)
 	if len(f.OutputAlphabet) > 0 {
-		fmt.Printf("Outputs:     %v\n", f.OutputAlphabet)
+		fmt.Printf("%-12s %v\n", v.Output+"s:", f.OutputAlphabet)
 	}
 }
 
@@ -916,8 +949,9 @@ func cmdValidate(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s: valid %s with %d states, %d transitions\n",
-		input, f.Type, len(f.States), len(f.Transitions))
+	v := f.Vocab()
+	fmt.Printf("%s: valid %s with %d %s, %d %s\n",
+		input, f.Type, len(f.States), strings.ToLower(v.States), len(f.Transitions), strings.ToLower(v.Transition)+"s")
 }
 
 func cmdRun(args []string) {
@@ -1175,7 +1209,8 @@ func printBundleHistory(br *fsm.BundleRunner) {
 }
 
 func printStatus(r *fsm.Runner, f *fsm.FSM) {
-	status := fmt.Sprintf("State: %s", r.CurrentState())
+	v := f.Vocab()
+	status := fmt.Sprintf("%s: %s", v.State, r.CurrentState())
 	if r.IsAccepting() {
 		status += " [accepting]"
 	}
@@ -1940,4 +1975,251 @@ func renderAllMachines(input, outputPattern, format string, native bool, fontSiz
 	}
 
 	fmt.Printf("\nRendered %d machines from %s\n", len(machines), input)
+}
+
+func cmdNetlist(args []string) {
+	if len(args) < 1 || args[0] == "-h" || args[0] == "--help" {
+		fmt.Println("Usage: fsm netlist <input> [options]")
+		fmt.Println("")
+		fmt.Println("Export structural netlist from an FSM with port/net data.")
+		fmt.Println("")
+		fmt.Println("Formats:")
+		fmt.Println("  text     Human-readable netlist (default)")
+		fmt.Println("  kicad    KiCad legacy S-expression (.net)")
+		fmt.Println("  json     Structured JSON netlist")
+		fmt.Println("")
+		fmt.Println("Options:")
+		fmt.Println("  -f, --format   Output format: text, kicad, json (default: text)")
+		fmt.Println("  -o, --output   Output file (default: stdout)")
+		fmt.Println("  -m, --machine  Select machine from bundle")
+		fmt.Println("  --bake         Write derived KiCad fields into source file classes")
+		fmt.Println("                 (kicad_part, kicad_footprint). Only for JSON files.")
+		fmt.Println("                 Does not overwrite existing values.")
+		fmt.Println("")
+		fmt.Println("Examples:")
+		fmt.Println("  fsm netlist circuit.json")
+		fmt.Println("  fsm netlist circuit.fsm --format kicad -o circuit.net")
+		fmt.Println("  fsm netlist bundle.fsm -m controller --format json")
+		fmt.Println("  fsm netlist circuit.json --bake")
+		if len(args) < 1 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	var input, output, format, machineName string
+	var bake bool
+	format = "text"
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-f", "--format":
+			if i+1 < len(args) {
+				format = args[i+1]
+				i++
+			}
+		case "-o", "--output":
+			if i+1 < len(args) {
+				output = args[i+1]
+				i++
+			}
+		case "-m", "--machine":
+			if i+1 < len(args) {
+				machineName = args[i+1]
+				i++
+			}
+		case "--bake":
+			bake = true
+		default:
+			if !strings.HasPrefix(args[i], "-") && input == "" {
+				input = args[i]
+			}
+		}
+	}
+
+	if input == "" {
+		fmt.Fprintln(os.Stderr, "Error: input file required")
+		os.Exit(1)
+	}
+
+	// Handle --bake: write KiCad fields into source file, then exit.
+	if bake {
+		cmdNetlistBake(input)
+		return
+	}
+
+	// Load FSM.
+	f, err := loadFSMWithMachine(input, machineName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading %s: %v\n", input, err)
+		os.Exit(1)
+	}
+
+	// Build the netlist.
+	nl := export.Build(f)
+
+	if len(nl.Components) == 0 {
+		fmt.Fprintln(os.Stderr, "Warning: no components with ports found. Is this a structural FSM?")
+	}
+
+	// Determine output writer.
+	var w *os.File
+	if output == "" || output == "-" {
+		w = os.Stdout
+	} else {
+		w, err = os.Create(output)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", output, err)
+			os.Exit(1)
+		}
+		defer w.Close()
+	}
+
+	// Export.
+	switch format {
+	case "text":
+		err = export.WriteText(w, nl)
+	case "kicad":
+		err = export.WriteKiCad(w, nl, f)
+	case "json":
+		err = export.WriteJSON(w, nl)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown format: %s (use text, kicad, or json)\n", format)
+		os.Exit(1)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing netlist: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Summary to stderr (so stdout can be piped).
+	if output != "" && output != "-" {
+		fmt.Fprintf(os.Stderr, "Exported: %d components, %d nets -> %s (%s)\n",
+			len(nl.Components), len(nl.Nets), output, format)
+	}
+
+	if len(nl.Unresolved) > 0 {
+		fmt.Fprintf(os.Stderr, "Warning: %d components without KiCad part mapping:\n", len(nl.Unresolved))
+		for _, u := range nl.Unresolved {
+			fmt.Fprintf(os.Stderr, "  %s\n", u)
+		}
+	}
+}
+
+// cmdNetlistBake writes derived KiCad fields into source file classes.
+// Supports both FSM JSON files and .classes.json library files.
+func cmdNetlistBake(input string) {
+	data, err := os.ReadFile(input)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", input, err)
+		os.Exit(1)
+	}
+
+	if strings.HasSuffix(input, ".classes.json") {
+		bakeClassLibrary(input, data)
+	} else if strings.HasSuffix(input, ".json") {
+		bakeFSMJSON(input, data)
+	} else {
+		fmt.Fprintln(os.Stderr, "Error: --bake only supports .json and .classes.json files")
+		os.Exit(1)
+	}
+}
+
+// bakeClassLibrary derives KiCad fields in a .classes.json library file.
+func bakeClassLibrary(path string, data []byte) {
+	var lib map[string]*fsm.Class
+	if err := json.Unmarshal(data, &lib); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", path, err)
+		os.Exit(1)
+	}
+
+	changed := 0
+	for name, cls := range lib {
+		cls.Name = name // map key is the name; struct field may be empty
+		if cls.DeriveKiCadFields() {
+			changed++
+			fmt.Fprintf(os.Stderr, "  %s -> part=%s footprint=%s\n",
+				name, cls.KiCadPart, cls.KiCadFootprint)
+		}
+	}
+
+	if changed == 0 {
+		fmt.Fprintf(os.Stderr, "%s: all classes already have KiCad fields (or none are derivable)\n", path)
+		return
+	}
+
+	// Clear Name fields so they don't appear in the map-keyed JSON.
+	// We use a custom struct to avoid the "name" field in output.
+	type libClass struct {
+		Parent         string            `json:"parent,omitempty"`
+		Properties     []fsm.PropertyDef `json:"properties"`
+		Ports          []fsm.Port        `json:"ports,omitempty"`
+		KiCadPart      string            `json:"kicad_part,omitempty"`
+		KiCadFootprint string            `json:"kicad_footprint,omitempty"`
+	}
+	outLib := make(map[string]libClass)
+	for name, cls := range lib {
+		outLib[name] = libClass{
+			Parent:         cls.Parent,
+			Properties:     cls.Properties,
+			Ports:          cls.Ports,
+			KiCadPart:      cls.KiCadPart,
+			KiCadFootprint: cls.KiCadFootprint,
+		}
+	}
+
+	out, err := json.MarshalIndent(outLib, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding: %v\n", err)
+		os.Exit(1)
+	}
+	out = append(out, '\n')
+
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", path, err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "Baked KiCad fields into %d classes in %s\n", changed, path)
+}
+
+// bakeFSMJSON derives KiCad fields in an FSM JSON file's classes.
+func bakeFSMJSON(path string, data []byte) {
+	f, err := fsmfile.ParseJSON(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing %s: %v\n", path, err)
+		os.Exit(1)
+	}
+
+	changed := 0
+	for name, cls := range f.Classes {
+		if name == fsm.DefaultClassName {
+			continue
+		}
+		if cls.DeriveKiCadFields() {
+			changed++
+			fmt.Fprintf(os.Stderr, "  %s -> part=%s footprint=%s\n",
+				name, cls.KiCadPart, cls.KiCadFootprint)
+		}
+	}
+
+	if changed == 0 {
+		fmt.Fprintf(os.Stderr, "%s: all classes already have KiCad fields (or none are derivable)\n", path)
+		return
+	}
+
+	out, err := fsmfile.ToJSON(f, true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding: %v\n", err)
+		os.Exit(1)
+	}
+	out = append(out, '\n')
+
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", path, err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "Baked KiCad fields into %d classes in %s\n", changed, path)
 }

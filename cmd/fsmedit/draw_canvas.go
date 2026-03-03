@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -22,6 +23,11 @@ func (ed *Editor) drawCanvas(w, h int) {
 	// Draw transitions FIRST (so states render on top)
 	if ed.showArcs {
 		ed.drawTransitions(canvasW, canvasH)
+	}
+
+	// Draw nets (structural connections) between transitions and states
+	if ed.showNets {
+		ed.drawNets(canvasW, canvasH)
 	}
 
 	// Draw states LAST (on top of arcs)
@@ -261,6 +267,216 @@ func (ed *Editor) drawTransitions(canvasW, canvasH int) {
 
 			// Draw the arc with offset
 			ed.drawArcWithOffset(fromX, fromY, toX, toY, label, offset, canvasW, canvasH, arcStyle)
+		}
+	}
+}
+
+// drawNets renders structural net connections between component instances.
+// Nets are drawn below the transition layer using orange dashed lines.
+// Power nets use a dimmer style; signal nets use bright orange.
+func (ed *Editor) drawNets(canvasW, canvasH int) {
+	if !ed.fsm.HasNets() {
+		return
+	}
+
+	// Build state position map
+	statePos := make(map[string]StatePos)
+	for _, sp := range ed.states {
+		statePos[sp.Name] = sp
+	}
+
+	// Assign vertical offsets to each net to avoid overlap.
+	// Start at +2 below the state row (below state label + Moore output/link).
+	netOffset := 2
+
+	for _, net := range ed.fsm.Nets {
+		style := styleNet
+		labelStyle := styleNetLabel
+		if ed.fsm.IsPowerNet(net) {
+			style = styleNetPower
+			labelStyle = styleNetPower
+		}
+
+		// Collect screen positions for all endpoints that are on-screen
+		type screenEP struct {
+			x, y int
+		}
+		var visible []screenEP
+		for _, ep := range net.Endpoints {
+			sp, ok := statePos[ep.Instance]
+			if !ok {
+				continue
+			}
+			sx := sp.X - ed.canvasOffsetX + len(sp.Name)/2 + 2
+			sy := sp.Y - ed.canvasOffsetY
+			visible = append(visible, screenEP{x: sx, y: sy})
+		}
+
+		if len(visible) < 2 {
+			continue
+		}
+
+		// Determine drawing approach based on endpoint count.
+		if len(visible) == 2 {
+			// Two-endpoint net: draw a direct routed line offset below.
+			ed.drawNetDirect(visible[0].x, visible[0].y, visible[1].x, visible[1].y,
+				net.Name, netOffset, canvasW, canvasH, style, labelStyle)
+		} else {
+			// Multi-endpoint net: draw a horizontal bus with vertical stubs.
+			xs := make([]int, len(visible))
+			ys := make([]int, len(visible))
+			for i, v := range visible {
+				xs[i] = v.x
+				ys[i] = v.y
+			}
+			ed.drawNetBus(xs, ys, net.Name, netOffset, canvasW, canvasH, style, labelStyle)
+		}
+
+		netOffset++
+	}
+}
+
+// drawNetDirect draws a two-endpoint net as a line routed below the components.
+//
+//   [U1]          [U2]
+//     │             │
+//     ╰─── NET_A ───╯
+//
+func (ed *Editor) drawNetDirect(x1, y1, x2, y2 int, label string, yOff int, canvasW, canvasH int, style, labelStyle tcell.Style) {
+	// Bus row: below the lower of the two endpoints
+	busY := y1 + yOff
+	if y2+yOff > busY {
+		busY = y2 + yOff
+	}
+	if busY >= canvasH {
+		return // off-screen
+	}
+
+	// Vertical stubs from each endpoint down to the bus row
+	ed.drawNetVStub(x1, y1+1, busY, canvasW, canvasH, style)
+	ed.drawNetVStub(x2, y2+1, busY, canvasW, canvasH, style)
+
+	// Horizontal segment between the two stubs
+	minX, maxX := x1, x2
+	if x1 > x2 {
+		minX, maxX = x2, x1
+	}
+
+	// Corner characters
+	if minX >= 0 && minX < canvasW && busY >= 0 && busY < canvasH {
+		ch := '╰'
+		if minX == x2 {
+			ch = '╰'
+		}
+		ed.screen.SetContent(minX, busY, ch, nil, style)
+	}
+	if maxX >= 0 && maxX < canvasW && busY >= 0 && busY < canvasH {
+		ed.screen.SetContent(maxX, busY, '╯', nil, style)
+	}
+
+	// Horizontal line
+	for x := minX + 1; x < maxX; x++ {
+		if x >= 0 && x < canvasW && busY >= 0 && busY < canvasH {
+			ed.screen.SetContent(x, busY, '╌', nil, style)
+		}
+	}
+
+	// Label at midpoint
+	midX := (minX+maxX)/2 - len(label)/2
+	for i, ch := range label {
+		px := midX + i
+		if px >= 0 && px < canvasW && busY >= 0 && busY < canvasH {
+			ed.screen.SetContent(px, busY, ch, nil, labelStyle)
+		}
+	}
+}
+
+// drawNetBus draws a multi-endpoint net as a horizontal bus with vertical stubs.
+//
+//   [U1]     [U2]     [U3]
+//     │        │        │
+//     ╰────────┴────────╯  VCC
+//
+func (ed *Editor) drawNetBus(xs, ys []int, label string, yOff int, canvasW, canvasH int, style, labelStyle tcell.Style) {
+	if len(xs) < 2 {
+		return
+	}
+
+	// Find the bus row: max Y + offset among all endpoints
+	busY := 0
+	for _, y := range ys {
+		if y+yOff > busY {
+			busY = y + yOff
+		}
+	}
+	if busY >= canvasH {
+		return
+	}
+
+	// Find X extent
+	minX, maxX := xs[0], xs[0]
+	for _, x := range xs {
+		if x < minX {
+			minX = x
+		}
+		if x > maxX {
+			maxX = x
+		}
+	}
+
+	// Draw the horizontal bus line
+	if busY >= 0 && busY < canvasH {
+		for x := minX; x <= maxX; x++ {
+			if x >= 0 && x < canvasW {
+				ed.screen.SetContent(x, busY, '╌', nil, style)
+			}
+		}
+	}
+
+	// Draw vertical stubs and junction characters
+	for i := range xs {
+		ed.drawNetVStub(xs[i], ys[i]+1, busY, canvasW, canvasH, style)
+
+		// Junction character on the bus line
+		if xs[i] >= 0 && xs[i] < canvasW && busY >= 0 && busY < canvasH {
+			ch := '┴'
+			if xs[i] == minX {
+				ch = '╰'
+			}
+			if xs[i] == maxX {
+				ch = '╯'
+			}
+			if minX == maxX {
+				ch = '│'
+			}
+			ed.screen.SetContent(xs[i], busY, ch, nil, style)
+		}
+	}
+
+	// Label after the bus
+	labelX := maxX + 2
+	if busY >= 0 && busY < canvasH {
+		for i, ch := range label {
+			px := labelX + i
+			if px >= 0 && px < canvasW {
+				ed.screen.SetContent(px, busY, ch, nil, labelStyle)
+			}
+		}
+	}
+}
+
+// drawNetVStub draws a vertical stub from startY to endY at column x.
+func (ed *Editor) drawNetVStub(x, startY, endY int, canvasW, canvasH int, style tcell.Style) {
+	if x < 0 || x >= canvasW {
+		return
+	}
+	minY, maxY := startY, endY
+	if startY > endY {
+		minY, maxY = endY, startY
+	}
+	for y := minY; y < maxY; y++ {
+		if y >= 0 && y < canvasH {
+			ed.screen.SetContent(x, y, '│', nil, style)
 		}
 	}
 }
@@ -547,6 +763,10 @@ func (ed *Editor) drawSidebar(w, h int) {
 	for _, t := range ed.fsm.Transitions {
 		totalHeight += len(t.To)
 	}
+	// Nets section (if any): header + net lines + blank
+	if ed.fsm.HasNets() {
+		totalHeight += 1 + len(ed.fsm.Nets) + 1
+	}
 	
 	// Clamp scroll offset
 	maxScroll := totalHeight - visibleHeight
@@ -669,6 +889,30 @@ func (ed *Editor) drawSidebar(w, h int) {
 				style = styleFlashHighlight
 			}
 			lines = append(lines, contentLine{truncate(line, ed.sidebarWidth-4), style})
+		}
+	}
+
+	// Nets section
+	if ed.fsm.HasNets() {
+		lines = append(lines, contentLine{"", styleSidebar}) // blank separator
+		signalCount := len(ed.fsm.SignalNets())
+		powerCount := len(ed.fsm.Nets) - signalCount
+		netHeader := fmt.Sprintf("Nets: %d", len(ed.fsm.Nets))
+		if powerCount > 0 {
+			netHeader = fmt.Sprintf("Nets: %d (%d sig, %d pwr)", len(ed.fsm.Nets), signalCount, powerCount)
+		}
+		lines = append(lines, contentLine{netHeader, styleSidebarH})
+		for _, n := range ed.fsm.Nets {
+			var eps []string
+			for _, ep := range n.Endpoints {
+				eps = append(eps, ep.Instance+"."+ep.Port)
+			}
+			tag := ""
+			if ed.fsm.IsPowerNet(n) {
+				tag = " [pwr]"
+			}
+			netLine := fmt.Sprintf("  %s: %s%s", n.Name, strings.Join(eps, ", "), tag)
+			lines = append(lines, contentLine{truncate(netLine, ed.sidebarWidth-4), styleNet})
 		}
 	}
 	

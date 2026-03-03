@@ -222,3 +222,215 @@ func TestNoClassDataProducesNoFile(t *testing.T) {
 		t.Errorf("bare FSM file unexpectedly large: %d bytes", info.Size())
 	}
 }
+
+// buildTestFSMWithNets creates an FSM with classes, ports, and nets.
+func buildTestFSMWithNets() *fsm.FSM {
+	f := fsm.New(fsm.TypeDFA)
+	f.Name = "net_test_circuit"
+	f.AddState("U1")
+	f.AddState("U2")
+	f.AddInput("clk")
+	f.AddTransition("U1", strp("clk"), []string{"U2"}, nil)
+
+	nand := &fsm.Class{
+		Name:       "7400_quad_nand",
+		Properties: []fsm.PropertyDef{{Name: "package", Type: fsm.PropShortString}},
+		Ports: []fsm.Port{
+			{Name: "1A", Direction: fsm.PortInput, PinNumber: 1, Group: "GATE_A"},
+			{Name: "1B", Direction: fsm.PortInput, PinNumber: 2, Group: "GATE_A"},
+			{Name: "1Y", Direction: fsm.PortOutput, PinNumber: 3, Group: "GATE_A"},
+			{Name: "GND", Direction: fsm.PortPower, PinNumber: 7},
+			{Name: "VCC", Direction: fsm.PortPower, PinNumber: 14},
+		},
+	}
+	flipflop := &fsm.Class{
+		Name:       "7474_dual_d_flipflop",
+		Properties: []fsm.PropertyDef{{Name: "trigger", Type: fsm.PropShortString}},
+		Ports: []fsm.Port{
+			{Name: "1D", Direction: fsm.PortInput, PinNumber: 2, Group: "FF1"},
+			{Name: "1CLK", Direction: fsm.PortInput, PinNumber: 3, Group: "FF1"},
+			{Name: "1Q", Direction: fsm.PortOutput, PinNumber: 5, Group: "FF1"},
+			{Name: "GND", Direction: fsm.PortPower, PinNumber: 7},
+			{Name: "VCC", Direction: fsm.PortPower, PinNumber: 14},
+		},
+	}
+
+	f.Classes[nand.Name] = nand
+	f.Classes[flipflop.Name] = flipflop
+	f.StateClasses["U1"] = nand.Name
+	f.StateClasses["U2"] = flipflop.Name
+
+	f.Nets = []fsm.Net{
+		{
+			Name: "DATA_BUS",
+			Endpoints: []fsm.NetEndpoint{
+				{Instance: "U1", Port: "1Y"},
+				{Instance: "U2", Port: "1D"},
+			},
+		},
+		{
+			Name: "VCC_RAIL",
+			Endpoints: []fsm.NetEndpoint{
+				{Instance: "U1", Port: "VCC"},
+				{Instance: "U2", Port: "VCC"},
+			},
+		},
+	}
+
+	return f
+}
+
+func TestSingleFileNetPersistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "nets.fsm")
+
+	original := buildTestFSMWithNets()
+	positions := map[string][2]int{"U1": {5, 3}, "U2": {25, 3}}
+
+	if err := WriteFSMFileWithLayout(path, original, true, positions, 0, 0); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	loaded, _, err := ReadFSMFileWithLayout(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+
+	if len(loaded.Nets) != 2 {
+		t.Fatalf("expected 2 nets, got %d", len(loaded.Nets))
+	}
+
+	// Verify DATA_BUS
+	var dataBus *fsm.Net
+	for i := range loaded.Nets {
+		if loaded.Nets[i].Name == "DATA_BUS" {
+			dataBus = &loaded.Nets[i]
+			break
+		}
+	}
+	if dataBus == nil {
+		t.Fatal("DATA_BUS net not found after reload")
+	}
+	if len(dataBus.Endpoints) != 2 {
+		t.Errorf("DATA_BUS: expected 2 endpoints, got %d", len(dataBus.Endpoints))
+	}
+	if !dataBus.HasEndpoint("U1", "1Y") {
+		t.Error("DATA_BUS: missing endpoint U1.1Y")
+	}
+	if !dataBus.HasEndpoint("U2", "1D") {
+		t.Error("DATA_BUS: missing endpoint U2.1D")
+	}
+
+	// Verify ports survived too
+	cls, ok := loaded.Classes["7400_quad_nand"]
+	if !ok {
+		t.Fatal("class 7400_quad_nand not found after reload")
+	}
+	if len(cls.Ports) != 5 {
+		t.Errorf("expected 5 ports on 7400_quad_nand, got %d", len(cls.Ports))
+	}
+}
+
+func TestBundleNetPersistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "bundle_nets.fsm")
+
+	f := buildTestFSMWithNets()
+	machines := map[string]BundleMachineData{
+		"circuit1": {
+			FSM:       f,
+			Positions: map[string][2]int{"U1": {5, 3}, "U2": {25, 3}},
+		},
+	}
+
+	if err := WriteBundleFromData(path, machines); err != nil {
+		t.Fatalf("write bundle: %v", err)
+	}
+
+	loaded, _, err := ReadMachineFromBundle(path, "circuit1")
+	if err != nil {
+		t.Fatalf("read bundle: %v", err)
+	}
+
+	if len(loaded.Nets) != 2 {
+		t.Errorf("expected 2 nets in circuit1, got %d", len(loaded.Nets))
+	}
+}
+
+func TestJSONNetPersistence(t *testing.T) {
+	original := buildTestFSMWithNets()
+
+	data, err := ToJSON(original, true)
+	if err != nil {
+		t.Fatalf("ToJSON: %v", err)
+	}
+
+	loaded, err := ParseJSON(data)
+	if err != nil {
+		t.Fatalf("ParseJSON: %v", err)
+	}
+
+	if len(loaded.Nets) != 2 {
+		t.Fatalf("expected 2 nets after JSON round-trip, got %d", len(loaded.Nets))
+	}
+
+	// Verify endpoint data fidelity
+	for _, n := range loaded.Nets {
+		if n.Name == "DATA_BUS" {
+			if !n.HasEndpoint("U1", "1Y") || !n.HasEndpoint("U2", "1D") {
+				t.Errorf("DATA_BUS endpoints corrupted: %+v", n.Endpoints)
+			}
+		}
+	}
+}
+
+func TestNoNetsOmittedInJSON(t *testing.T) {
+	f := fsm.New(fsm.TypeDFA)
+	f.Name = "bare"
+	f.AddState("S1")
+
+	data, err := ToJSON(f, true)
+	if err != nil {
+		t.Fatalf("ToJSON: %v", err)
+	}
+
+	s := string(data)
+	if indexOf(s, `"nets"`) >= 0 {
+		t.Error("expected nets key to be omitted from JSON when empty")
+	}
+}
+
+func TestLabelsTomlWithNets(t *testing.T) {
+	f := buildTestFSMWithNets()
+	_, states, inputs, outputs := FSMToRecords(f)
+	toml := GenerateLabels(f, states, inputs, outputs)
+
+	if indexOf(toml, "[nets]") < 0 {
+		t.Error("expected [nets] section in labels.toml")
+	}
+	if indexOf(toml, "DATA_BUS") < 0 {
+		t.Error("expected DATA_BUS in labels.toml")
+	}
+	if indexOf(toml, "U1.1Y") < 0 {
+		t.Error("expected U1.1Y in labels.toml nets section")
+	}
+
+	// Verify it parses back
+	labels, err := ParseLabels(toml)
+	if err != nil {
+		t.Fatalf("ParseLabels: %v", err)
+	}
+	if len(labels.Nets) != 2 {
+		t.Errorf("expected 2 nets parsed from labels, got %d", len(labels.Nets))
+	}
+}
+
+// indexOf is a simple substring search for test assertions.
+func indexOf(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}

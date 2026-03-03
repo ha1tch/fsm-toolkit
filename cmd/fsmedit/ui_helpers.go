@@ -44,6 +44,9 @@ var (
 	styleStateLinked = tcell.StyleDefault.Foreground(tcell.ColorFuchsia).Bold(true)
 	styleTrans      = tcell.StyleDefault.Foreground(tcell.ColorTeal)
 	styleTransDrag  = tcell.StyleDefault.Foreground(tcell.NewRGBColor(200, 162, 200)) // Lilac
+	styleNet        = tcell.StyleDefault.Foreground(tcell.ColorOrange)
+	styleNetPower   = tcell.StyleDefault.Foreground(tcell.NewRGBColor(120, 90, 60))   // Dim brown
+	styleNetLabel   = tcell.StyleDefault.Foreground(tcell.ColorOrange).Bold(true)
 	styleSidebar    = tcell.StyleDefault.Foreground(tcell.ColorWhite)
 	styleSidebarH   = tcell.StyleDefault.Foreground(tcell.ColorYellow).Bold(true)
 	styleStatus     = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
@@ -63,6 +66,15 @@ var (
 	styleOverlayHdr = tcell.StyleDefault.Background(tcell.PaletteColor(235)).Foreground(tcell.ColorYellow)
 	styleOverlayEdt = tcell.StyleDefault.Background(tcell.ColorDarkGreen).Foreground(tcell.ColorWhite)
 	styleOverlayBrd = tcell.StyleDefault.Background(tcell.PaletteColor(235)).Foreground(tcell.PaletteColor(240))
+
+	// Connection detail: group labels [FF1], [GATE_A] — teal on dark
+	styleOverlayGroup = tcell.StyleDefault.Background(tcell.PaletteColor(235)).Foreground(tcell.PaletteColor(73))
+	// Connection detail: power net rows — amber on dark
+	styleOverlayPower   = tcell.StyleDefault.Background(tcell.PaletteColor(235)).Foreground(tcell.PaletteColor(172))
+	styleOverlayPowerHl = tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.PaletteColor(172))
+	// Connection detail: signal net rows — cyan on dark
+	styleOverlaySignal   = tcell.StyleDefault.Background(tcell.PaletteColor(235)).Foreground(tcell.PaletteColor(117))
+	styleOverlaySignalHl = tcell.StyleDefault.Background(tcell.ColorBlue).Foreground(tcell.PaletteColor(117))
 )
 
 // drawTitledBox draws a bordered box with optional title
